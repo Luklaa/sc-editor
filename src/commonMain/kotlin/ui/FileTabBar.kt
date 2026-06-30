@@ -17,6 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 
 @Composable
 fun GlassFileTabBar(
@@ -69,8 +72,13 @@ fun GlassFileTabBar(
                             .clickable { onTabClose(index) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "×", color = Color(0xFF64748B), fontSize = 12.sp)
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                    contentDescription = null,
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(10.dp)
+                    )
+                }
                 }
             }
         }

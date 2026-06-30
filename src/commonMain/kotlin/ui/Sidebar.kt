@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
 
 private data class SidebarListRow(
     val sectionTitle: String? = null,
@@ -151,16 +152,23 @@ fun GlassSidebar(
 
             if (activeBottomTab == "Objects") {
                 Row(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp)
                         .background(Color.Black.copy(alpha = 0.05f), RoundedCornerShape(10.dp))
                         .padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     listOf("Id", "Name", "Type").forEachIndexed { index, colName ->
+
                         val interactionSource = remember { MutableInteractionSource() }
                         val isHovered by interactionSource.collectIsHoveredAsState()
 
-                        Box(modifier = Modifier.weight(columnWidths[index]).fillMaxHeight()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(columnWidths[index])
+                                .fillMaxHeight()
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -173,17 +181,20 @@ fun GlassSidebar(
                                             sortAscending = true
                                         }
                                     }
-                                    .padding(vertical = 4.dp, horizontal = 4.dp),
+                                    .padding(horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    (if (sortColumn == colName) (if (sortAscending) "▲ " else "▼ ") else "") + colName,
+                                    (if (sortColumn == colName)
+                                        if (sortAscending) "▲ " else "▼ "
+                                    else "") + colName,
                                     color = Color(0xFF1E293B),
                                     fontSize = 11.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
+
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(999.dp))
@@ -191,7 +202,7 @@ fun GlassSidebar(
                                             activeSearchColumn =
                                                 if (activeSearchColumn == colName) null else colName
                                         }
-                                        .padding(2.dp),
+                                        .padding(0.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("⌕", color = Color(0xFF3B82F6), fontSize = 10.sp)
@@ -202,32 +213,37 @@ fun GlassSidebar(
                         if (index < 2) {
                             Box(
                                 modifier = Modifier
-                                    .width(8.dp)
-                                    .height(24.dp)
-                                    .align(Alignment.CenterVertically)
-                                    .background(
-                                        Color.Black.copy(alpha = 0.12f),
-                                        RoundedCornerShape(50.dp)
-                                    )
+                                    .size(width = 10.dp, height = 24.dp)
                                     .pointerInput(index) {
                                         detectDragGestures { _, dragAmount ->
-                                            if (dragAmount.x != 0f) {
-                                                val delta =
-                                                    (dragAmount.x / 120f).coerceIn(-0.7f, 0.7f)
-                                                columnWidths[index] =
-                                                    (columnWidths[index] + delta).coerceIn(
-                                                        0.9f,
-                                                        4.8f
-                                                    )
-                                                columnWidths[index + 1] =
-                                                    (columnWidths[index + 1] - delta).coerceIn(
-                                                        0.9f,
-                                                        4.8f
-                                                    )
-                                            }
+                                            val delta = (dragAmount.x / 120f).coerceIn(-0.7f, 0.7f)
+                                            columnWidths[index] =
+                                                (columnWidths[index] + delta).coerceIn(0.9f, 4.8f)
+                                            columnWidths[index + 1] =
+                                                (columnWidths[index + 1] - delta).coerceIn(0.9f, 4.8f)
                                         }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .background(
+                                            Color.Black.copy(alpha = 0.06f),
+                                            RoundedCornerShape(6.dp)
+                                        )
+                                        .padding(horizontal = 3.dp, vertical = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    repeat(3) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(2.dp)
+                                                .background(Color.Black.copy(alpha = 1f), CircleShape)
+                                        )
                                     }
-                            )
+                                }
+                            }
                         }
                     }
                 }
@@ -302,7 +318,7 @@ fun GlassSidebar(
                                                 contentAlignment = Alignment.CenterStart
                                             ) {
                                                 Text(
-                                                    obj.name.ifEmpty { "Форма ${obj.id}" },
+                                                    obj.name.ifEmpty { "" },
                                                     color = Color(0xFF475569),
                                                     fontSize = 12.sp,
                                                     maxLines = 1,
@@ -355,6 +371,7 @@ fun GlassSidebar(
                                         }
                                     }
                                 }
+
                             }
                         }
                     } else if (activeBottomTab == "Textures") {

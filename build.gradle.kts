@@ -25,6 +25,7 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
+                implementation(compose.materialIconsExtended)
 
                 // Подключаем наш скомпилированный jar-файл:
                 implementation(files("libs/libktx-5.0.0.jar")) // Укажите точное имя скопированного файла
