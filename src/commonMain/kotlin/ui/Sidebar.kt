@@ -11,14 +11,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -167,7 +167,8 @@ fun GlassSidebar(
                         Box(
                             modifier = Modifier
                                 .weight(columnWidths[index])
-                                .fillMaxHeight()
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.CenterStart
                         ) {
                             Row(
                                 modifier = Modifier
@@ -247,167 +248,124 @@ fun GlassSidebar(
                         }
                     }
                 }
+            }
 
-                Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
-                    if (activeBottomTab == "Objects") {
-                        if (objectRows.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Нет объектов по запросу",
-                                    color = Color(0xFF64748B),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                itemsIndexed(objectRows) { _, row ->
-                                    if (row.sectionTitle != null) {
-                                        Text(
-                                            text = row.sectionTitle,
-                                            color = Color(0xFF0F172A),
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
-                                        )
-                                    } else if (row.objectIndex != null) {
-                                        val obj = openedTab.objects[row.objectIndex]
-                                        val isSelected =
-                                            row.objectIndex == openedTab.activeObjectIndex
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(
-                                                    if (isSelected) Color(0xFFE0F2FE).copy(
-                                                        alpha = 0.55f
-                                                    ) else Color.Transparent
-                                                )
-                                                .border(
-                                                    1.dp,
-                                                    if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
-                                                    RoundedCornerShape(8.dp)
-                                                )
-                                                .padding(vertical = 6.dp, horizontal = 6.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier.weight(columnWidths[0])
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .clickable { onObjectSelected(row.objectIndex) }
-                                                    .padding(vertical = 3.dp, horizontal = 2.dp),
-                                                contentAlignment = Alignment.CenterStart
-                                            ) {
-                                                Text(
-                                                    "${obj.id}",
-                                                    color = Color(0xFF475569),
-                                                    fontSize = 12.sp,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                            Box(
-                                                modifier = Modifier.weight(columnWidths[1])
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .clickable { onObjectSelected(row.objectIndex) }
-                                                    .padding(vertical = 3.dp, horizontal = 2.dp),
-                                                contentAlignment = Alignment.CenterStart
-                                            ) {
-                                                Text(
-                                                    obj.name.ifEmpty { "" },
-                                                    color = Color(0xFF475569),
-                                                    fontSize = 12.sp,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                            Box(
-                                                modifier = Modifier.weight(columnWidths[2])
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .clickable { onObjectSelected(row.objectIndex) }
-                                                    .padding(vertical = 3.dp, horizontal = 2.dp),
-                                                contentAlignment = Alignment.CenterStart
-                                            ) {
-                                                Text(
-                                                    obj.type,
-                                                    color = Color(0xFF94A3B8),
-                                                    fontSize = 11.sp,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    } else if (row.textureIndex != null) {
-                                        val tex = openedTab.textures[row.textureIndex]
-                                        val isSelected =
-                                            row.textureIndex == openedTab.activeTextureIndex
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(
-                                                    if (isSelected) Color(0xFFE0F2FE).copy(
-                                                        alpha = 0.55f
-                                                    ) else Color.Transparent
-                                                )
-                                                .border(
-                                                    1.dp,
-                                                    if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
-                                                    RoundedCornerShape(8.dp)
-                                                )
-                                                .clickable { onTextureSelected(row.textureIndex) }
-                                                .padding(vertical = 6.dp, horizontal = 8.dp)
-                                        ) {
-                                            Text(
-                                                "Texture ${tex.index} · ${tex.width}x${tex.height} · ${tex.format}",
-                                                color = Color(0xFF475569),
-                                                fontSize = 11.sp,
-                                                maxLines = 1
-                                            )
-                                        }
-                                    }
-                                }
-
-                            }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
+                if (activeBottomTab == "Objects") {
+                    if (objectRows.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Нет объектов по запросу",
+                                color = Color(0xFF64748B),
+                                fontSize = 12.sp
+                            )
                         }
-                    } else if (activeBottomTab == "Textures") {
-                        if (filteredTextures.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "Нет текстур по запросу",
-                                    color = Color(0xFF64748B),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                itemsIndexed(filteredTextures) { index, tex ->
-                                    val isSelected = index == openedTab.activeTextureIndex
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            itemsIndexed(objectRows) { _, row ->
+                                if (row.sectionTitle != null) {
+                                    Text(
+                                        text = row.sectionTitle,
+                                        color = Color(0xFF0F172A),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
+                                    )
+                                } else if (row.objectIndex != null) {
+                                    val obj = openedTab.objects[row.objectIndex]
+                                    val isSelected =
+                                        row.objectIndex == openedTab.activeObjectIndex
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(if (isSelected) Color(0xFFE0F2FE).copy(alpha = 0.55f) else Color.Transparent)
+                                            .background(
+                                                if (isSelected) Color(0xFFE0F2FE).copy(
+                                                    alpha = 0.55f
+                                                ) else Color.Transparent
+                                            )
                                             .border(
                                                 1.dp,
                                                 if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
                                                 RoundedCornerShape(8.dp)
                                             )
-                                            .clickable { onTextureSelected(index) }
+                                            .padding(vertical = 6.dp, horizontal = 6.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.weight(columnWidths[0])
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable { onObjectSelected(row.objectIndex) }
+                                                .padding(vertical = 3.dp, horizontal = 2.dp),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            Text(
+                                                "${obj.id}",
+                                                color = Color(0xFF475569),
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier.weight(columnWidths[1])
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable { onObjectSelected(row.objectIndex) }
+                                                .padding(vertical = 3.dp, horizontal = 2.dp),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            Text(
+                                                obj.name.ifEmpty { "" },
+                                                color = Color(0xFF475569),
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier.weight(columnWidths[2])
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable { onObjectSelected(row.objectIndex) }
+                                                .padding(vertical = 3.dp, horizontal = 2.dp),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            Text(
+                                                obj.type,
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                } else if (row.textureIndex != null) {
+                                    val tex = openedTab.textures[row.textureIndex]
+                                    val isSelected =
+                                        row.textureIndex == openedTab.activeTextureIndex
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(
+                                                if (isSelected) Color(0xFFE0F2FE).copy(
+                                                    alpha = 0.55f
+                                                ) else Color.Transparent
+                                            )
+                                            .border(
+                                                1.dp,
+                                                if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { onTextureSelected(row.textureIndex) }
                                             .padding(vertical = 6.dp, horizontal = 8.dp)
                                     ) {
                                         Text(
-                                            "Texture ${tex.index} · ${tex.width}x${tex.height}",
+                                            "Texture ${tex.index} · ${tex.width}x${tex.height} · ${tex.format}",
                                             color = Color(0xFF475569),
                                             fontSize = 11.sp,
                                             maxLines = 1
@@ -415,28 +373,86 @@ fun GlassSidebar(
                                     }
                                 }
                             }
+
+                        }
+                    }
+                } else if (activeBottomTab == "Textures") {
+                    if (filteredTextures.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Нет текстур по запросу",
+                                color = Color(0xFF64748B),
+                                fontSize = 12.sp
+                            )
                         }
                     } else {
-                        val selectedObj =
-                            if (openedTab.activeObjectIndex in openedTab.objects.indices) {
-                                openedTab.objects[openedTab.activeObjectIndex]
-                            } else null
-                        GlassObjectInfo(selectedObj, openedTab)
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+//                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            itemsIndexed(filteredTextures) { index, tex ->
+                                val isSelected = index == openedTab.activeTextureIndex
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) Color(0xFFE0F2FE).copy(alpha = 0.55f) else Color.Transparent)
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable { onTextureSelected(index) }
+                                        .padding(vertical = 6.dp, horizontal = 8.dp)
+                                ) {
+                                    Text(
+                                        "Texture ${tex.index} · ${tex.width}x${tex.height}",
+                                        color = Color(0xFF475569),
+                                        fontSize = 11.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
                     }
+                } else {
+                    val selectedObj =
+                        if (openedTab.activeObjectIndex in openedTab.objects.indices) {
+                            openedTab.objects[openedTab.activeObjectIndex]
+                        } else null
+                    GlassObjectInfo(selectedObj, openedTab)
                 }
             }
 
             if (activeBottomTab == "Objects" && activeSearchColumn != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                val queryValue = when (activeSearchColumn) {
+                    "Id" -> idQuery
+                    "Name" -> nameQuery
+                    else -> typeQuery
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.8f))
+                        .border(1.dp, Color(0xFF93C5FD), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    val queryValue = when (activeSearchColumn) {
-                        "Id" -> idQuery
-                        "Name" -> nameQuery
-                        else -> typeQuery
+                    if (queryValue.isEmpty()) {
+                        Text(
+                            "Искать в ${activeSearchColumn}...",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
                     }
-                    TextField(
+                    BasicTextField(
                         value = queryValue,
                         onValueChange = {
                             when (activeSearchColumn) {
@@ -445,23 +461,10 @@ fun GlassSidebar(
                                 else -> typeQuery = it
                             }
                         },
-                        placeholder = {
-                            Text(
-                                "Искать в ${activeSearchColumn}...",
-                                fontSize = 10.sp
-                            )
-                        },
-                        textStyle = TextStyle(fontSize = 12.sp),
-                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        textStyle = TextStyle(fontSize = 12.sp, color = Color(0xFF1E293B)),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.White.copy(alpha = 0.4f),
-                            unfocusedContainerColor = Color.White.copy(alpha = 0.25f),
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            cursorColor = Color(0xFF2563EB)
-                        )
+                        cursorBrush = SolidColor(Color(0xFF2563EB)),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
