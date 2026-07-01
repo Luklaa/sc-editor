@@ -42,7 +42,6 @@ fun GlassFileTabBar(
                 modifier = Modifier
                     .padding(end = 8.dp)
                     .width(IntrinsicSize.Min)
-                    .widthIn(min = 180.dp)
                     .heightIn(min = 40.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isActive) Color(0xFFE0F2FE).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.2f))

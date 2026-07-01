@@ -260,9 +260,9 @@ fun ScMovieClipView(
         val scale = minOf(availableWidth / contentWidth, availableHeight / contentHeight)
         val offsetX = (size.width - contentWidth * scale) / 2f - minX * scale
         val offsetY = (size.height - contentHeight * scale) / 2f - minY * scale
-
         for (call in drawCalls) {
             val bitmap = call.textureItem.bitmap ?: continue
+            if (call.alpha < 0.01f) continue // Оптимизация: полностью прозрачные меши не рисуем
 
             val scaledPositions = FloatArray(call.positions.size)
             for (i in call.positions.indices step 2) {
@@ -270,7 +270,21 @@ fun ScMovieClipView(
                 scaledPositions[i + 1] = call.positions[i + 1] * scale + offsetY
             }
 
-            drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices, call.alpha)
+            // Если у меша есть прозрачность, рисуем его во временном слое с альфой
+            if (call.alpha < 0.99f) {
+                val paint = androidx.compose.ui.graphics.Paint().apply {
+                    alpha = call.alpha
+                }
+                drawContext.canvas.saveLayer(
+                    androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height),
+                    paint
+                )
+                drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices)
+                drawContext.canvas.restore()
+            } else {
+                // Обычная непрозрачная отрисовка
+                drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices)
+            }
         }
     }
 }

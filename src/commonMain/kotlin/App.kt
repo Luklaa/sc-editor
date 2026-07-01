@@ -259,7 +259,7 @@ fun App(
                 .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
                 .padding(16.dp)
         ) {
-            val sidebarMaxWidth = (maxWidth * 0.5f).coerceAtLeast(320.dp)
+            val sidebarMaxWidth = maxWidth - 50.dp
 
             Column(modifier = Modifier.fillMaxSize()) {
 
@@ -285,10 +285,16 @@ fun App(
                         GlassSidebar(
                             openedTab = activeTab,
                             onObjectSelected = { objIndex ->
-                                openedTabs[activeTabIndex] = activeTab.copy(activeObjectIndex = objIndex)
+                                openedTabs[activeTabIndex] = activeTab.copy(
+                                    activeObjectIndex = objIndex,
+                                    viewMode = "OBJECT" // Переключаем на отображение объектов
+                                )
                             },
                             onTextureSelected = { texIndex ->
-                                openedTabs[activeTabIndex] = activeTab.copy(activeTextureIndex = texIndex)
+                                openedTabs[activeTabIndex] = activeTab.copy(
+                                    activeTextureIndex = texIndex,
+                                    viewMode = "TEXTURE" // Переключаем на отображение текстурного атласа
+                                )
                             },
                             modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                         )
@@ -319,33 +325,68 @@ fun App(
                             activeTab.textures[texIndex]
                         } else null
 
-                        // Показываем геометрию Shape вместо текстуры-атласа, если в
-                        // списке объектов выбран Shape (и у него есть команды отрисовки).
-                        val isShapeSelected = selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
+                        // Определяем, нужно ли показывать текстурное полотно
+                        val showTextureSheet = activeTab != null && activeTab.viewMode == "TEXTURE"
+
+                        // Создаем контроллер для мувиклипа, если выбран мувиклип и активен режим отображения объектов
+                        val mcController = if (activeTab != null && activeTab.viewMode == "OBJECT" && selectedObj != null && selectedObj.type == "MovieClip") {
+                            dev.donutquine.editor.renderer.impl.swf.objects.rememberMovieClipController(selectedObj)
+                        } else null
 
                         GlassViewport(
-                            loadedImage = if (!isShapeSelected) currentTexture?.bitmap else null,
+                            loadedImage = if (showTextureSheet) currentTexture?.bitmap else null,
                             infoLabel = when {
-                                isShapeSelected -> "Shape ${selectedObj?.id} · команд: ${selectedObj?.shapeCommands?.size}"
-                                currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
+                                showTextureSheet && currentTexture != null -> {
+                                    "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
+                                }
+                                !showTextureSheet && selectedObj != null -> {
+                                    when (selectedObj.type) {
+                                        "Shape" -> "Shape ${selectedObj.id} · команд: ${selectedObj.shapeCommands.size}"
+                                        "MovieClip" -> "MovieClip ${selectedObj.id} · кадров: ${selectedObj.mcFrames.size} · FPS: ${selectedObj.fps}"
+                                        else -> "${selectedObj.type} ${selectedObj.id}"
+                                    }
+                                }
                                 else -> null
                             },
-                            content = if (isShapeSelected && activeTab != null && selectedObj != null) {
-                                {
-                                    dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
-                                        commands = selectedObj.shapeCommands,
-                                        textures = activeTab.textures,
-                                        useStrip = activeTab.containerVersion >= 5,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                            content = if (!showTextureSheet && activeTab != null && selectedObj != null) {
+                                when (selectedObj.type) {
+                                    "Shape" -> {
+                                        {
+                                            dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
+                                                commands = selectedObj.shapeCommands,
+                                                textures = activeTab.textures,
+                                                useStrip = activeTab.containerVersion >= 5,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                    "MovieClip" -> {
+                                        {
+                                            if (mcController != null) {
+                                                dev.donutquine.editor.renderer.impl.swf.objects.ScMovieClipView(
+                                                    movieClip = selectedObj,
+                                                    objectsById = activeTab.objectsById,
+                                                    matrixBanks = activeTab.matrixBanks,
+                                                    textures = activeTab.textures,
+                                                    useStrip = activeTab.containerVersion >= 5,
+                                                    timeSeconds = mcController.timeSeconds,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                        }
+                                    }
+                                    else -> null
                                 }
                             } else null,
                             modifier = Modifier.weight(1f).fillMaxWidth()
                         )
 
-                        if (selectedObj != null && selectedObj.type == "MovieClip") {
+                        if (!showTextureSheet && selectedObj != null && selectedObj.type == "MovieClip" && mcController != null) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            GlassTimelinePanel(modifier = Modifier.fillMaxWidth())
+                            GlassTimelinePanel(
+                                controller = mcController, // Передаем общий контроллер в твою панель управления
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }

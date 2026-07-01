@@ -14,9 +14,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.donutquine.editor.renderer.impl.swf.objects.MovieClipController
 
 @Composable
 fun GlassTimelinePanel(
+    controller: MovieClipController, // Добавляем этот параметр
     modifier: Modifier = Modifier
 ) {
     var currentFrame by remember { mutableStateOf(0f) }
