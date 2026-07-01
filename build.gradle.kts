@@ -26,10 +26,7 @@ kotlin {
                 implementation(compose.material3)
                 implementation(compose.ui)
                 implementation(compose.materialIconsExtended)
-
-                // Подключаем наш скомпилированный jar-файл:
-                implementation(files("libs/libktx-5.0.0.jar")) // Укажите точное имя скопированного файла
-
+                implementation(files("libs/libktx-5.0.0.jar"))
                 implementation("dev.donutquine:supercell-texture:1.0.1")
                 implementation("dev.donutquine:supercell-swf:1.1.8")
                 implementation("com.github.luben:zstd-jni:1.5.7-7")
