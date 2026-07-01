@@ -26,6 +26,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 
 private data class SidebarListRow(
     val sectionTitle: String? = null,
@@ -149,6 +152,7 @@ fun GlassSidebar(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .hoverable(interactionSource)
+                                    .clip(RoundedCornerShape(8.dp))
                                     .clickable {
                                         if (sortColumn == colName) {
                                             sortAscending = !sortAscending
@@ -168,7 +172,7 @@ fun GlassSidebar(
                                     fontSize = 11.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).offset(y = (-2.5).dp)
                                 )
 
                                 Box(
@@ -181,7 +185,17 @@ fun GlassSidebar(
                                         .padding(0.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("⌕", color = Color(0xFF3B82F6), fontSize = 10.sp)
+                                    Icon(
+                                        imageVector = Icons.Filled.Search, // Заменяем символ на стандартную иконку поиска
+                                        contentDescription = "Search", // Описание для людей с ограниченными возможностями (или null, если не важно)
+                                        tint = Color(0xFF3B82F6), // Применяем твой синий цвет (как в оригинале)
+                                        // Заменяем fontSize на size. Твой текст был очень мелким (10.sp),
+                                        // поэтому иконку сделаем тоже компактной (например, 14.dp), чтобы она хорошо смотрелась в Row.
+                                        modifier = Modifier
+                                            .size(14.dp)
+//                                            .offset(y = (-).dp) // Твой сдвиг вверх сохраняем
+                                    )
+//                                    Text("⌕", color = Color(0xFF3B82F6), fontSize = 10.sp, modifier = Modifier.offset(y = (-2.5).dp))
                                 }
                             }
                         }
@@ -452,8 +466,14 @@ fun GlassSidebar(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().height(35.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth().height(35.dp)
+                    .fillMaxWidth()
+                    .height(35.dp)
+                    .clip(RoundedCornerShape(8.dp)) // Скругляем всю строку
+                    .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                    .padding(2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 listOf("Objects", "Info", "Textures").forEach { tab ->
                     val isActive = activeBottomTab == tab
@@ -463,8 +483,9 @@ fun GlassSidebar(
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (isActive) Color.Black.copy(alpha = 0.1f) else Color.Transparent)
-                            .clickable { activeBottomTab = tab },
-                        contentAlignment = Alignment.Center
+                            .clickable { activeBottomTab = tab }
+                            .padding(2.dp),
+                        contentAlignment = Alignment.TopCenter
                     ) {
                         Text(
                             text = tab,

@@ -257,13 +257,13 @@ fun App(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
-                .padding(16.dp)
+                .padding(12.dp)
         ) {
             val sidebarMaxWidth = maxWidth - 50.dp
 
             Column(modifier = Modifier.fillMaxSize()) {
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height((-3).dp))
 
                 // Вкладки открытых файлов (Tabs)
                 if (openedTabs.isNotEmpty()) {
