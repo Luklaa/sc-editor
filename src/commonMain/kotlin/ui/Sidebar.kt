@@ -90,43 +90,18 @@ fun GlassSidebar(
         }
     }
 
-    val objectRows = remember(filteredAndSortedObjects, filteredTextures, normalizedSearch) {
-        buildList<SidebarListRow> {
-            // Внимание: "Export" — не отдельный тип объекта в библиотеке supercell-swf,
-            // это просто имя, навешенное на уже существующий MovieClip. Реальных типов
-            // ровно три: MovieClip, Shape, TextField (см. оригинальный
-            // SupercellSWFLayoutController#collectObjectTableRows в Java-версии редактора).
-
-            val movieClips = filteredAndSortedObjects.filter { (_, obj) -> obj.type == "MovieClip" }
-            if (movieClips.isNotEmpty()) {
-                add(SidebarListRow(sectionTitle = "MovieClips", title = "", subtitle = "", type = "Header"))
-                movieClips.forEach { (index, obj) ->
-                    add(SidebarListRow(objectIndex = index, title = obj.name.ifEmpty { "MovieClip ${obj.id}" }, subtitle = "#${obj.id}", type = obj.type))
-                }
-            }
-
-            val shapes = filteredAndSortedObjects.filter { (_, obj) -> obj.type == "Shape" }
-            if (shapes.isNotEmpty()) {
-                add(SidebarListRow(sectionTitle = "Shapes", title = "", subtitle = "", type = "Header"))
-                shapes.forEach { (index, obj) ->
-                    add(SidebarListRow(objectIndex = index, title = "Shape ${obj.id}", subtitle = "#${obj.id}", type = obj.type))
-                }
-            }
-
-            val textFields = filteredAndSortedObjects.filter { (_, obj) -> obj.type == "TextField" }
-            if (textFields.isNotEmpty()) {
-                add(SidebarListRow(sectionTitle = "TextFields", title = "", subtitle = "", type = "Header"))
-                textFields.forEach { (index, obj) ->
-                    add(SidebarListRow(objectIndex = index, title = obj.name.ifEmpty { "TextField ${obj.id}" }, subtitle = "#${obj.id}", type = obj.type))
-                }
-            }
-
-            if (filteredTextures.isNotEmpty()) {
-                add(SidebarListRow(sectionTitle = "Resources", title = "", subtitle = "", type = "Header"))
-                filteredTextures.forEachIndexed { index, tex ->
-                    add(SidebarListRow(textureIndex = index, title = "Texture ${tex.index}", subtitle = "${tex.width}x${tex.height} · ${tex.format}", type = "Resource"))
-                }
-            }
+    // Плоский список без заголовков секций — как в оригинальном Java-редакторе
+    // (DisplayObjectListPanel: обычная сортируемая JTable с колонками Id/Name/Type,
+    // без какой-либо группировки по типу). Текстуры сюда не подмешиваются — у них
+    // отдельная вкладка "Textures", как и в оригинале.
+    val objectRows = remember(filteredAndSortedObjects) {
+        filteredAndSortedObjects.map { (index, obj) ->
+            SidebarListRow(
+                objectIndex = index,
+                title = obj.name.ifEmpty { "${obj.type} ${obj.id}" },
+                subtitle = "#${obj.id}",
+                type = obj.type
+            )
         }
     }
 
