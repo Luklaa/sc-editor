@@ -15,11 +15,28 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun GlassObjectInfo(
     selectedObject: ScObjectItem?,
+    selectedTexture: ScTextureItem? = null,
     tab: OpenedTab,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
-        if (selectedObject != null) {
+        if (selectedObject == null && selectedTexture != null) {
+            // Требование 2.3.4: информация о текстуре — только размеры холста и формат пикселей.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                    .padding(10.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Texture ${selectedTexture.index}", color = Color(0xFF0F172A), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Размер холста: ${selectedTexture.width} × ${selectedTexture.height}", color = Color(0xFF475569), fontSize = 12.sp)
+                    Text("Формат пикселей: ${selectedTexture.format}", color = Color(0xFF475569), fontSize = 12.sp)
+                    Text("Файл: ${tab.name}", color = Color(0xFF64748B), fontSize = 11.sp)
+                }
+            }
+        } else if (selectedObject != null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

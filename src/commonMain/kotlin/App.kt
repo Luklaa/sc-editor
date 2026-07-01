@@ -310,13 +310,14 @@ fun App(
 
                     // Центральный вьюпорт + плеер (если выбран MovieClip)
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                        val currentImage = if (activeTab != null && activeTab.textures.isNotEmpty()) {
+                        val currentTexture = if (activeTab != null && activeTab.textures.isNotEmpty()) {
                             val texIndex = activeTab.activeTextureIndex.coerceIn(activeTab.textures.indices)
-                            activeTab.textures[texIndex].bitmap
+                            activeTab.textures[texIndex]
                         } else null
 
                         GlassViewport(
-                            loadedImage = currentImage,
+                            loadedImage = currentTexture?.bitmap,
+                            infoLabel = currentTexture?.let { "Texture ${it.index} · ${it.width}×${it.height} · ${it.format}" },
                             modifier = Modifier.weight(1f).fillMaxWidth()
                         )
 

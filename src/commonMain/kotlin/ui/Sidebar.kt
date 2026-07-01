@@ -368,8 +368,11 @@ fun GlassSidebar(
                             modifier = Modifier.fillMaxSize(),
 //                            verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
-                            itemsIndexed(filteredTextures) { index, tex ->
-                                val isSelected = index == openedTab.activeTextureIndex
+                            // ВАЖНО: индекс для выбора — это tex.index (позиция в полном
+                            // openedTab.textures), а НЕ позиция в отфильтрованном списке.
+                            // Раньше при активном поиске клик выбирал не ту текстуру.
+                            itemsIndexed(filteredTextures) { _, tex ->
+                                val isSelected = tex.index == openedTab.activeTextureIndex
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -380,9 +383,28 @@ fun GlassSidebar(
                                             if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
                                             RoundedCornerShape(8.dp)
                                         )
-                                        .clickable { onTextureSelected(index) }
-                                        .padding(vertical = 6.dp, horizontal = 8.dp)
+                                        .clickable { onTextureSelected(tex.index) }
+                                        .padding(vertical = 4.dp, horizontal = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .checkerboard(cellSize = 4.dp)
+                                            .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(6.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val bmp = tex.bitmap
+                                        if (bmp != null) {
+                                            androidx.compose.foundation.Image(
+                                                bitmap = bmp,
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         "Texture ${tex.index} · ${tex.width}x${tex.height}",
                                         color = Color(0xFF475569),
@@ -398,7 +420,11 @@ fun GlassSidebar(
                         if (openedTab.activeObjectIndex in openedTab.objects.indices) {
                             openedTab.objects[openedTab.activeObjectIndex]
                         } else null
-                    GlassObjectInfo(selectedObj, openedTab)
+                    val selectedTex =
+                        if (openedTab.activeTextureIndex in openedTab.textures.indices) {
+                            openedTab.textures[openedTab.activeTextureIndex]
+                        } else null
+                    GlassObjectInfo(selectedObj, selectedTex, openedTab)
                 }
             }
 

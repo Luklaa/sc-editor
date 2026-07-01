@@ -11,14 +11,48 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+// Клетчатый фон под текстурой, чтобы было видно альфа-канал (прозрачность),
+// как в Photoshop/TexturePacker — иначе прозрачные пиксели сливаются с фоном.
+fun Modifier.checkerboard(
+    cellSize: Dp = 10.dp,
+    colorLight: Color = Color(0xFFF3F4F6),
+    colorDark: Color = Color(0xFFDCE0E5)
+): Modifier = drawBehind {
+    val cellPx = cellSize.toPx()
+    if (cellPx <= 0f) return@drawBehind
+    var row = 0
+    var y = 0f
+    while (y < size.height) {
+        var col = 0
+        var x = 0f
+        while (x < size.width) {
+            val color = if ((row + col) % 2 == 0) colorLight else colorDark
+            drawRect(
+                color = color,
+                topLeft = Offset(x, y),
+                size = Size(minOf(cellPx, size.width - x), minOf(cellPx, size.height - y))
+            )
+            col++
+            x += cellPx
+        }
+        row++
+        y += cellPx
+    }
+}
 
 @Composable
 fun GlassViewport(
     loadedImage: ImageBitmap?,
+    infoLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier) {
@@ -32,7 +66,7 @@ fun GlassViewport(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.2f))
+                        .checkerboard()
                         .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
@@ -42,6 +76,23 @@ fun GlassViewport(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize()
                     )
+                }
+
+                if (infoLabel != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(24.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = infoLabel,
+                            color = Color.White,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
             } else {
                 Text(
