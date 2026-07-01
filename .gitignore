@@ -144,3 +144,14 @@ docs/technical_requirements.md
 .gradle/8.7/fileHashes/resourceHashesCache.bin
 .gradle/buildOutputCleanup/buildOutputCleanup.lock
 .gradle/buildOutputCleanup/outputFiles.bin
+/build
+build/
+.gradle/
+.kotlin/
+.idea/
+target/
+local.properties
+.editorconfig
+.git-blame-ignore-revs
+.gitattributes
+docs/
