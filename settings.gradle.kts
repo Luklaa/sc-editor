@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        gradlePluginPortal() // Ставим родной портал плагинов первым
+        gradlePluginPortal()
         google()
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
