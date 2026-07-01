@@ -335,6 +335,7 @@ fun App(
                                     dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
                                         commands = selectedObj.shapeCommands,
                                         textures = activeTab.textures,
+                                        useStrip = activeTab.containerVersion >= 5,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }

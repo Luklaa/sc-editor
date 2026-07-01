@@ -31,6 +31,7 @@ expect fun DrawScope.drawTexturedMesh(
 fun ScShapeView(
     commands: List<ShapeDrawBitmapCommand>,
     textures: List<ScTextureItem>,
+    useStrip: Boolean,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -84,13 +85,24 @@ fun ScShapeView(
                 texCoords[i * 2 + 1] = command.getV(i) * bitmap.height
             }
 
-            // Веерная триангуляция от вершины 0 — так эти фигуры уже упорядочены
-            // в файле (см. Triangulator.TRIANGLE_FAN в оригинальном Java-рендерере).
+            // Режим триангуляции зависит от версии контейнера файла — см.
+            // SupercellSWFAssetFile.setTriangleFunction(containerVersion >= 5) в оригинале:
+            // v5+ пишет вершины как TRIANGLE_STRIP (i, i+1, i+2), более старые — как
+            // TRIANGLE_FAN (0, i+1, i+2). Раньше тут всегда стоял FAN, из-за чего на
+            // файлах v5+ фигуры триангулировались неправильно (рваные треугольные обрезки).
             val indices = ShortArray(triangleCount * 3)
-            for (t in 0 until triangleCount) {
-                indices[t * 3] = 0
-                indices[t * 3 + 1] = (t + 1).toShort()
-                indices[t * 3 + 2] = (t + 2).toShort()
+            if (useStrip) {
+                for (t in 0 until triangleCount) {
+                    indices[t * 3] = t.toShort()
+                    indices[t * 3 + 1] = (t + 1).toShort()
+                    indices[t * 3 + 2] = (t + 2).toShort()
+                }
+            } else {
+                for (t in 0 until triangleCount) {
+                    indices[t * 3] = 0
+                    indices[t * 3 + 1] = (t + 1).toShort()
+                    indices[t * 3 + 2] = (t + 2).toShort()
+                }
             }
 
             drawTexturedMesh(bitmap, positions, texCoords, indices)
