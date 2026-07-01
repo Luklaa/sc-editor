@@ -51,9 +51,10 @@ fun Modifier.checkerboard(
 
 @Composable
 fun GlassViewport(
-    loadedImage: ImageBitmap?,
+    loadedImage: ImageBitmap? = null,
     infoLabel: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: (@Composable () -> Unit)? = null
 ) {
     Box(modifier = modifier) {
         Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).blur(20.dp).background(Color.White.copy(alpha = 0.45f)))
@@ -61,7 +62,7 @@ fun GlassViewport(
             modifier = Modifier.fillMaxSize().border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(0.8f), Color.White.copy(0.15f))), RoundedCornerShape(24.dp)).padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (loadedImage != null) {
+            if (loadedImage != null || content != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -71,11 +72,15 @@ fun GlassViewport(
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        bitmap = loadedImage,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    if (content != null) {
+                        content()
+                    } else if (loadedImage != null) {
+                        Image(
+                            bitmap = loadedImage,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
 
                 if (infoLabel != null) {

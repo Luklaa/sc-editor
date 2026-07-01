@@ -1,6 +1,7 @@
 package ui
 
 import androidx.compose.ui.graphics.ImageBitmap
+import dev.donutquine.swf.shapes.ShapeDrawBitmapCommand
 
 data class ScTextureItem(
     val index: Int,
@@ -13,7 +14,8 @@ data class ScTextureItem(
 data class ScObjectItem(
     val id: Int,
     val name: String,
-    val type: String // "Export", "MovieClip", "Shape", "TextField"
+    val type: String,
+    val shapeCommands: List<ShapeDrawBitmapCommand> = emptyList()
 )
 
 data class OpenedTab(

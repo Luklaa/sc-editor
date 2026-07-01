@@ -210,7 +210,7 @@ fun App(
                         }
 
                         swf.shapes?.forEach { shape ->
-                            objectsList.add(ScObjectItem(shape.id, "", "Shape"))
+                            objectsList.add(ScObjectItem(shape.id, "", "Shape", shapeCommands = shape.commands))
                         }
 
                         swf.textFields?.forEach { tf ->
@@ -310,20 +310,37 @@ fun App(
 
                     // Центральный вьюпорт + плеер (если выбран MovieClip)
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
+                            activeTab.objects[activeTab.activeObjectIndex]
+                        } else null
+
                         val currentTexture = if (activeTab != null && activeTab.textures.isNotEmpty()) {
                             val texIndex = activeTab.activeTextureIndex.coerceIn(activeTab.textures.indices)
                             activeTab.textures[texIndex]
                         } else null
 
+                        // Показываем геометрию Shape вместо текстуры-атласа, если в
+                        // списке объектов выбран Shape (и у него есть команды отрисовки).
+                        val isShapeSelected = selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
+
                         GlassViewport(
-                            loadedImage = currentTexture?.bitmap,
-                            infoLabel = currentTexture?.let { "Texture ${it.index} · ${it.width}×${it.height} · ${it.format}" },
+                            loadedImage = if (!isShapeSelected) currentTexture?.bitmap else null,
+                            infoLabel = when {
+                                isShapeSelected -> "Shape ${selectedObj?.id} · команд: ${selectedObj?.shapeCommands?.size}"
+                                currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
+                                else -> null
+                            },
+                            content = if (isShapeSelected && activeTab != null && selectedObj != null) {
+                                {
+                                    dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
+                                        commands = selectedObj.shapeCommands,
+                                        textures = activeTab.textures,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            } else null,
                             modifier = Modifier.weight(1f).fillMaxWidth()
                         )
-
-                        val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
-                            activeTab.objects[activeTab.activeObjectIndex]
-                        } else null
 
                         if (selectedObj != null && selectedObj.type == "MovieClip") {
                             Spacer(modifier = Modifier.height(12.dp))

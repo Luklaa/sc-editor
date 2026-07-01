@@ -384,27 +384,8 @@ fun GlassSidebar(
                                             RoundedCornerShape(8.dp)
                                         )
                                         .clickable { onTextureSelected(tex.index) }
-                                        .padding(vertical = 4.dp, horizontal = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .padding(vertical = 6.dp, horizontal = 8.dp)
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .checkerboard(cellSize = 4.dp)
-                                            .border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(6.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        val bmp = tex.bitmap
-                                        if (bmp != null) {
-                                            androidx.compose.foundation.Image(
-                                                bitmap = bmp,
-                                                contentDescription = null,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         "Texture ${tex.index} · ${tex.width}x${tex.height}",
                                         color = Color(0xFF475569),
