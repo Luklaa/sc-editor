@@ -26,6 +26,15 @@ import ui.GlassTimelinePanel
 import ui.OpenedTab
 import ui.ScObjectItem
 import ui.ScTextureItem
+import ui.ScMatrixBankItem
+import ui.ScMatrixItem
+import ui.ScColorTransformItem
+import ui.ScMovieClipChildItem
+import ui.ScMovieClipFrameItem
+import ui.ScMovieClipFrameElementItem
+import ui.ScRectItem
+import dev.donutquine.editor.renderer.impl.swf.objects.ScMovieClipView
+import dev.donutquine.editor.renderer.impl.swf.objects.rememberMovieClipController
 import java.nio.ByteBuffer
 import java.nio.IntBuffer
 
@@ -106,6 +115,7 @@ fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: Byt
     return null
 }
 
+@Suppress("UnusedBoxWithConstraintsScope")
 @Composable
 fun App(
     onTitleChanged: (String) -> Unit,
@@ -120,7 +130,6 @@ fun App(
     val openedTabs = remember { mutableStateListOf<OpenedTab>() }
     var activeTabIndex by remember { mutableStateOf(-1) }
 
-    // Динамическая ширина сайдбара
     var sidebarWidth by remember { mutableStateOf(320.dp) }
 
     val activeTab = if (activeTabIndex in openedTabs.indices) openedTabs[activeTabIndex] else null
@@ -141,6 +150,7 @@ fun App(
                 try {
                     val texturesList = mutableListOf<ScTextureItem>()
                     val objectsList = mutableListOf<ScObjectItem>()
+                    val matrixBanksList = mutableListOf<ScMatrixBankItem>()
                     var loadedImage: ImageBitmap? = null
                     var statusText = "Загрузка..."
                     var containerVersion = 1
@@ -200,7 +210,31 @@ fun App(
                         }
 
                         swf.movieClips?.forEach { mc ->
-                            objectsList.add(ScObjectItem(mc.id, mc.exportName ?: "", "MovieClip"))
+                            val mcChildren = mc.children.map { child ->
+                                ScMovieClipChildItem(id = child.id(), blend = child.blend(), name = child.name())
+                            }
+                            val mcFrames = mc.frames.map { frame ->
+                                ScMovieClipFrameItem(
+                                    label = frame.label,
+                                    elements = frame.elements.map { el ->
+                                        ScMovieClipFrameElementItem(el.childIndex(), el.matrixIndex(), el.colorTransformIndex())
+                                    }
+                                )
+                            }
+                            objectsList.add(
+                                ScObjectItem(
+                                    id = mc.id,
+                                    name = mc.exportName ?: "",
+                                    type = "MovieClip",
+                                    fps = mc.fps,
+                                    matrixBankIndex = mc.matrixBankIndex,
+                                    mcChildren = mcChildren,
+                                    mcFrames = mcFrames,
+                                    scalingGrid = mc.scalingGrid?.let { grid ->
+                                        ScRectItem(grid.left, grid.top, grid.right, grid.bottom)
+                                    }
+                                )
+                            )
                         }
 
                         swf.shapes?.forEach { shape ->
@@ -210,9 +244,28 @@ fun App(
                         swf.textFields?.forEach { tf ->
                             objectsList.add(ScObjectItem(tf.id, "", "TextField"))
                         }
+
+                        swf.matrixBanks?.forEach { bank ->
+                            matrixBanksList.add(
+                                ScMatrixBankItem(
+                                    matrices = bank.matrices.map { m -> ScMatrixItem(m.a, m.b, m.c, m.d, m.x, m.y) },
+                                    colorTransforms = bank.colorTransforms.map { ct ->
+                                        ScColorTransformItem(
+                                            redMultiplier = ct.redMultiplier,
+                                            greenMultiplier = ct.greenMultiplier,
+                                            blueMultiplier = ct.blueMultiplier,
+                                            alpha = ct.alpha,
+                                            redAddition = ct.redAddition,
+                                            greenAddition = ct.greenAddition,
+                                            blueAddition = ct.blueAddition
+                                        )
+                                    }
+                                )
+                            )
+                        }
                     }
 
-                    openedTabs.add(OpenedTab(fileName, path, containerVersion, texturesList, objectsList, -1, 0, statusText))
+                    openedTabs.add(OpenedTab(fileName, path, containerVersion, texturesList, objectsList, -1, 0, statusText, matrixBanksList))
                     activeTabIndex = openedTabs.size - 1
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -253,7 +306,7 @@ fun App(
                 .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
                 .padding(12.dp)
         ) {
-            val sidebarMaxWidth = maxWidth - 50.dp
+            val sidebarMaxWidth = maxWidth - 200.dp
 
             Column(modifier = Modifier.fillMaxSize()) {
 
@@ -272,21 +325,16 @@ fun App(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
+
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     if (activeTab != null) {
                         GlassSidebar(
                             openedTab = activeTab,
                             onObjectSelected = { objIndex ->
-                                openedTabs[activeTabIndex] = activeTab.copy(
-                                    activeObjectIndex = objIndex,
-                                    viewMode = "OBJECT"
-                                )
+                                openedTabs[activeTabIndex] = activeTab.copy(activeObjectIndex = objIndex, viewMode = "OBJECT")
                             },
                             onTextureSelected = { texIndex ->
-                                openedTabs[activeTabIndex] = activeTab.copy(
-                                    activeTextureIndex = texIndex,
-                                    viewMode = "TEXTURE"
-                                )
+                                openedTabs[activeTabIndex] = activeTab.copy(activeTextureIndex = texIndex, viewMode = "TEXTURE")
                             },
                             modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                         )
@@ -305,6 +353,7 @@ fun App(
                         )
                     }
 
+
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
                             activeTab.objects[activeTab.activeObjectIndex]
@@ -315,64 +364,64 @@ fun App(
                             activeTab.textures[texIndex]
                         } else null
 
-                        val showTextureSheet = activeTab != null && activeTab.viewMode == "TEXTURE"
+                        val viewMode = activeTab?.viewMode ?: "OBJECT"
 
-                        val mcController = if (activeTab != null && activeTab.viewMode == "OBJECT" && selectedObj != null && selectedObj.type == "MovieClip") {
-                            dev.donutquine.editor.renderer.impl.swf.objects.rememberMovieClipController(selectedObj)
+                        val isShapeSelected = viewMode == "OBJECT" && selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
+                        val isMovieClipSelected = viewMode == "OBJECT" && selectedObj?.type == "MovieClip" && selectedObj.mcFrames.isNotEmpty()
+                        val showTextureCanvas = !isShapeSelected && !isMovieClipSelected
+
+                        val mcController = if (isMovieClipSelected && selectedObj != null) {
+                            rememberMovieClipController(selectedObj)
                         } else null
 
                         GlassViewport(
-                            loadedImage = if (showTextureSheet) currentTexture?.bitmap else null,
+                            loadedImage = if (showTextureCanvas) currentTexture?.bitmap else null,
                             infoLabel = when {
-                                showTextureSheet && currentTexture != null -> {
-                                    "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
+                                isShapeSelected -> "Shape ${selectedObj?.id} · команд: ${selectedObj?.shapeCommands?.size}"
+                                isMovieClipSelected -> {
+                                    val nameSuffix = if (!selectedObj?.name.isNullOrEmpty()) " · ${selectedObj?.name}" else ""
+                                    "MovieClip ${selectedObj?.id}$nameSuffix · ${selectedObj?.fps} fps · кадр ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
                                 }
-                                !showTextureSheet && selectedObj != null -> {
-                                    when (selectedObj.type) {
-                                        "Shape" -> "Shape ${selectedObj.id} · команд: ${selectedObj.shapeCommands.size}"
-                                        "MovieClip" -> "MovieClip ${selectedObj.id} · кадров: ${selectedObj.mcFrames.size} · FPS: ${selectedObj.fps}"
-                                        else -> "${selectedObj.type} ${selectedObj.id}"
+                                currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
+                                else -> null
+                            },
+                            content = when {
+                                isShapeSelected && activeTab != null && selectedObj != null -> {
+                                    {
+                                        dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
+                                            commands = selectedObj.shapeCommands,
+                                            textures = activeTab.textures,
+                                            useStrip = activeTab.containerVersion >= 5,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+                                isMovieClipSelected && activeTab != null && selectedObj != null && mcController != null -> {
+                                    {
+                                        ScMovieClipView(
+                                            movieClip = selectedObj,
+                                            objectsById = activeTab.objectsById,
+                                            matrixBanks = activeTab.matrixBanks,
+                                            textures = activeTab.textures,
+                                            useStrip = activeTab.containerVersion >= 5,
+                                            timeSeconds = mcController.timeSeconds,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
                                     }
                                 }
                                 else -> null
                             },
-                            content = if (!showTextureSheet && activeTab != null && selectedObj != null) {
-                                when (selectedObj.type) {
-                                    "Shape" -> {
-                                        {
-                                            dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
-                                                commands = selectedObj.shapeCommands,
-                                                textures = activeTab.textures,
-                                                useStrip = activeTab.containerVersion >= 5,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        }
-                                    }
-                                    "MovieClip" -> {
-                                        {
-                                            if (mcController != null) {
-                                                dev.donutquine.editor.renderer.impl.swf.objects.ScMovieClipView(
-                                                    movieClip = selectedObj,
-                                                    objectsById = activeTab.objectsById,
-                                                    matrixBanks = activeTab.matrixBanks,
-                                                    textures = activeTab.textures,
-                                                    useStrip = activeTab.containerVersion >= 5,
-                                                    timeSeconds = mcController.timeSeconds,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            }
-                                        }
-                                    }
-                                    else -> null
-                                }
-                            } else null,
                             modifier = Modifier.weight(1f).fillMaxWidth()
                         )
 
-                        if (!showTextureSheet && selectedObj != null && selectedObj.type == "MovieClip" && mcController != null) {
+                        if (isMovieClipSelected && selectedObj != null && mcController != null) {
                             Spacer(modifier = Modifier.height(12.dp))
                             GlassTimelinePanel(
-                                controller = mcController,
+                                frameCount = selectedObj.mcFrames.size,
+                                currentFrame = mcController.currentFrame,
+                                isPlaying = mcController.isPlaying,
+                                onFrameChange = { mcController.setFrame(it) },
+                                onTogglePlaying = { mcController.togglePlaying() },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }

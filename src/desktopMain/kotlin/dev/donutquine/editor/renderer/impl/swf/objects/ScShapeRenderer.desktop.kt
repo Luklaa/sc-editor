@@ -12,13 +12,15 @@ import org.jetbrains.skia.Paint
 import org.jetbrains.skia.VertexMode
 import java.util.Collections
 import java.util.WeakHashMap
+
 private val skiaImageCache = Collections.synchronizedMap(WeakHashMap<ImageBitmap, Image>())
 
 actual fun DrawScope.drawTexturedMesh(
     texture: ImageBitmap,
     positions: FloatArray,
     texCoords: FloatArray,
-    indices: ShortArray
+    indices: ShortArray,
+    alpha: Float
 ) {
     drawIntoCanvas { canvas ->
         val skiaImage = skiaImageCache.getOrPut(texture) {
@@ -27,6 +29,7 @@ actual fun DrawScope.drawTexturedMesh(
 
         val paint = Paint().apply {
             shader = skiaImage.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP)
+            this.alpha = (alpha.coerceIn(0f, 1f) * 255).toInt()
         }
 
         canvas.nativeCanvas.drawVertices(

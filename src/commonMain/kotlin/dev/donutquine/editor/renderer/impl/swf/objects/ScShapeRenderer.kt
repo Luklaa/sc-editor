@@ -12,7 +12,8 @@ expect fun DrawScope.drawTexturedMesh(
     texture: ImageBitmap,
     positions: FloatArray,
     texCoords: FloatArray,
-    indices: ShortArray
+    indices: ShortArray,
+    alpha: Float = 1f
 )
 
 @Composable

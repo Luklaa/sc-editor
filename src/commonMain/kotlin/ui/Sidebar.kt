@@ -458,7 +458,7 @@ fun GlassSidebar(
                 modifier = Modifier.fillMaxWidth().height(35.dp)
                     .fillMaxWidth()
                     .height(35.dp)
-                    .clip(RoundedCornerShape(8.dp)) // Скругляем всю строку
+                    .clip(RoundedCornerShape(8.dp))
                     .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
                     .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
                     .padding(2.dp),

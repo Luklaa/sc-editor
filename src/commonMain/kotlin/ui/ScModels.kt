@@ -52,16 +52,28 @@ data class ScMovieClipFrameItem(
     val elements: List<ScMovieClipFrameElementItem> = emptyList()
 )
 
+data class ScRectItem(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+) {
+    val width: Float get() = right - left
+    val height: Float get() = bottom - top
+    val midX: Float get() = left + width / 2f
+    val midY: Float get() = top + height / 2f
+}
+
 data class ScObjectItem(
     val id: Int,
     val name: String,
     val type: String,
     val shapeCommands: List<ShapeDrawBitmapCommand> = emptyList(),
-
     val fps: Int = 0,
     val matrixBankIndex: Int = 0,
     val mcChildren: List<ScMovieClipChildItem> = emptyList(),
-    val mcFrames: List<ScMovieClipFrameItem> = emptyList()
+    val mcFrames: List<ScMovieClipFrameItem> = emptyList(),
+    val scalingGrid: ScRectItem? = null
 )
 
 data class OpenedTab(

@@ -13,13 +13,15 @@ actual fun DrawScope.drawTexturedMesh(
     texture: ImageBitmap,
     positions: FloatArray,
     texCoords: FloatArray,
-    indices: ShortArray
+    indices: ShortArray,
+    alpha: Float
 ) {
     drawIntoCanvas { canvas ->
         val androidBitmap = texture.asAndroidBitmap()
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = BitmapShader(androidBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+            this.alpha = (alpha.coerceIn(0f, 1f) * 255).toInt()
         }
 
         canvas.nativeCanvas.drawVertices(

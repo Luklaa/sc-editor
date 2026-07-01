@@ -15,8 +15,17 @@ import ui.ScColorTransformItem
 import ui.ScMatrixBankItem
 import ui.ScMatrixItem
 import ui.ScObjectItem
+import ui.ScRectItem
 import ui.ScTextureItem
 
+/**
+ * Состояние проигрывателя мувиклипа (кадр + play/stop), которым управляет
+ * GlassTimelinePanel и который используется ScMovieClipView для рендера.
+ *
+ * timeSeconds — единый "источник времени" для ВСЕГО дерева: вложенные мувиклипы
+ * анимируются по своим fps/frames.size от этого же значения, а не от значения
+ * currentFrame родителя (у них может быть другое число кадров и другой fps).
+ */
 class MovieClipController(
     val frameCount: Int,
     val fps: Int
@@ -83,6 +92,8 @@ private class MovieClipDrawCall(
 private fun collectDrawCalls(
     objectId: Int,
     matrix: ScMatrixItem,
+    ownMatrix: ScMatrixItem,
+    scalingGrid: ScRectItem?,
     alpha: Float,
     objectsById: Map<Int, ScObjectItem>,
     matrixBanks: List<ScMatrixBankItem>,
@@ -97,6 +108,11 @@ private fun collectDrawCalls(
 
     when (obj.type) {
         "Shape" -> {
+            val useNineSlice = scalingGrid != null
+            val shapeBounds = if (useNineSlice) computeShapeLocalBounds(obj.shapeCommands) else null
+            val safeArea = if (useNineSlice) scalingGrid!!.movedBy(-ownMatrix.x, -ownMatrix.y) else null
+            val (scaledWidth, scaledHeight) = if (useNineSlice) computeNineSliceScale(scalingGrid!!, matrix) else 1f to 1f
+
             for (command in obj.shapeCommands) {
                 val textureItem = textures.getOrNull(command.textureIndex) ?: continue
                 if (textureItem.bitmap == null) continue
@@ -108,8 +124,13 @@ private fun collectDrawCalls(
                 val positions = FloatArray(vertexCount * 2)
                 val texCoords = FloatArray(vertexCount * 2)
                 for (i in 0 until vertexCount) {
-                    val localX = command.getX(i)
-                    val localY = command.getY(i)
+                    val rawX = command.getX(i)
+                    val rawY = command.getY(i)
+                    val (localX, localY) = if (useNineSlice) {
+                        nineSliceLocalXY(rawX, rawY, safeArea!!, shapeBounds!!, scaledWidth, scaledHeight)
+                    } else {
+                        rawX to rawY
+                    }
                     positions[i * 2] = matrix.applyX(localX, localY)
                     positions[i * 2 + 1] = matrix.applyY(localX, localY)
                     texCoords[i * 2] = command.getU(i) * textureItem.bitmap.width
@@ -145,6 +166,7 @@ private fun collectDrawCalls(
 
             for (element in frame.elements) {
                 val child = obj.mcChildren.getOrNull(element.childIndex) ?: continue
+                if (child.blend and 64 != 0) continue
                 val childMatrix = bank?.matrices?.getOrNull(element.matrixIndex) ?: IDENTITY_MATRIX
                 val childColor: ScColorTransformItem? = bank?.colorTransforms?.getOrNull(element.colorTransformIndex)
                 val childAlpha = alpha * ((childColor?.alpha ?: 255) / 255f)
@@ -152,6 +174,8 @@ private fun collectDrawCalls(
                 collectDrawCalls(
                     objectId = child.id,
                     matrix = composeMatrix(matrix, childMatrix),
+                    ownMatrix = childMatrix,
+                    scalingGrid = obj.scalingGrid,
                     alpha = childAlpha,
                     objectsById = objectsById,
                     matrixBanks = matrixBanks,
@@ -163,9 +187,11 @@ private fun collectDrawCalls(
                 )
             }
         }
+
         else -> return
     }
 }
+
 
 @Composable
 fun ScMovieClipView(
@@ -182,6 +208,8 @@ fun ScMovieClipView(
         collectDrawCalls(
             objectId = movieClip.id,
             matrix = IDENTITY_MATRIX,
+            ownMatrix = IDENTITY_MATRIX,
+            scalingGrid = null,
             alpha = 1f,
             objectsById = objectsById,
             matrixBanks = matrixBanks,
@@ -225,9 +253,9 @@ fun ScMovieClipView(
         val scale = minOf(availableWidth / contentWidth, availableHeight / contentHeight)
         val offsetX = (size.width - contentWidth * scale) / 2f - minX * scale
         val offsetY = (size.height - contentHeight * scale) / 2f - minY * scale
+
         for (call in drawCalls) {
             val bitmap = call.textureItem.bitmap ?: continue
-            if (call.alpha < 0.01f) continue
 
             val scaledPositions = FloatArray(call.positions.size)
             for (i in call.positions.indices step 2) {
@@ -235,19 +263,7 @@ fun ScMovieClipView(
                 scaledPositions[i + 1] = call.positions[i + 1] * scale + offsetY
             }
 
-            if (call.alpha < 0.99f) {
-                val paint = androidx.compose.ui.graphics.Paint().apply {
-                    alpha = call.alpha
-                }
-                drawContext.canvas.saveLayer(
-                    androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height),
-                    paint
-                )
-                drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices)
-                drawContext.canvas.restore()
-            } else {
-                drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices)
-            }
+            drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices, call.alpha)
         }
     }
 }
