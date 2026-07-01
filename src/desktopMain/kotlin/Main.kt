@@ -11,31 +11,23 @@ import java.awt.Color
 import java.awt.Dimension
 
 fun main() = application {
-    // Инициализируем светлую тему FlatLaf
     FlatLightLaf.setup()
 
-    // Настройка нативного слияния меню и заголовка Windows
     if (SystemInfo.isWindows_10_orLater) {
         UIManager.put("TitlePane.useWindowDecorations", true)
         UIManager.put("TitlePane.menuBarEmbedded", true)
 
-        // Цвета заголовка окна
-        val titleColor = Color(223, 231, 245)
-        UIManager.put("TitlePane.background", titleColor)
-        UIManager.put("TitlePane.inactiveBackground", titleColor)
+        UIManager.put("TitlePane.background", Color(223, 231, 245))
+        UIManager.put("TitlePane.inactiveBackground", Color(223, 231, 245))
         UIManager.put("TitlePane.foreground", Color(30, 41, 59))
 
-        // Настройка выпадающего Swing-меню (белый полупрозрачный стиль)
         UIManager.put("PopupMenu.background", Color(255, 255, 255, 110))
         UIManager.put("PopupMenu.borderColor", Color(226, 232, 240))
 
-
-        // Выделение верхних кнопок в самом меню-баре (File, Edit...)
         UIManager.put("MenuBar.hoverBackground", Color(233, 236, 242))
         UIManager.put("MenuBar.selectionBackground", Color(229, 234, 242))
         UIManager.put("MenuBar.selectionForeground", Color(30, 41, 59))
 
-        // Выделение внутренних пунктов (Open, Close...) при наведении
         UIManager.put("Menu.selectionBackground", Color(229, 234, 242))
         UIManager.put("Menu.selectionForeground", Color(30, 41, 59))
         UIManager.put("MenuItem.selectionBackground", Color(229, 234, 242, 150))
@@ -44,8 +36,6 @@ fun main() = application {
 
     val windowState = rememberWindowState(size = DpSize(1024.dp, 720.dp))
     var windowTitle by remember { mutableStateOf("SC Editor 1.6.2") }
-
-    // Триггеры для связи Swing-меню и Compose-кода
     var triggerOpenFile by remember { mutableStateOf(false) }
     var triggerCloseFile by remember { mutableStateOf(false) }
     var triggerCloseAllFiles by remember { mutableStateOf(false) }
@@ -54,7 +44,7 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         state = windowState,
         title = windowTitle,
-        undecorated = false // Полноценное нативное окно Windows
+        undecorated = false
     ) {
         LaunchedEffect(window) {
             window.minimumSize = Dimension(800, 600)

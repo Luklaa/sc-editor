@@ -7,7 +7,7 @@ import dev.donutquine.math.MathHelper
 import team.nulls.ntengine.assets.KhronosTexture
 actual object ImageUtils {
     actual fun flipY(width: Int, height: Int, pixelArray: IntArray) {
-        // Логика аналогичная
+
         for (y in 0 until height / 2) {
             val topOffset = y * width
             val bottomOffset = (height - 1 - y) * width
@@ -21,7 +21,7 @@ actual object ImageUtils {
         }
     }
     actual fun decompressKtx(ktx: KhronosTexture): ImageBitmap? {
-        // Заглушка для Android
+
         return null
     }
     actual fun cropPixelArray(
@@ -55,7 +55,7 @@ actual object ImageUtils {
         pixelArray: IntArray,
         isLuminanceAlpha: Boolean
     ): ImageBitmap {
-        // На Android мы конвертируем пиксели в системный Bitmap, а затем в ImageBitmap для Compose!
+
         val bitmap = Bitmap.createBitmap(pixelArray, width, height, Bitmap.Config.ARGB_8888)
         return bitmap.asImageBitmap()
     }

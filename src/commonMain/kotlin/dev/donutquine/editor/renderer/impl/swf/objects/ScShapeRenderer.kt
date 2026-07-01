@@ -8,13 +8,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import dev.donutquine.swf.shapes.ShapeDrawBitmapCommand
 import ui.ScTextureItem
 
-// Платформенная часть: непосредственный вызов отрисовки текстурированной треугольной
-// сетки (positions/texCoords уже в пикселях канвы, indices — плоский буфер, по 3 индекса
-// на треугольник, как в оригинальном Triangulator.TRIANGLE_FAN/TRIANGLE_STRIP).
-// ВАЖНО: раз indices уже явно перечисляют треугольники тройками, режим отрисовки должен
-// быть "TRIANGLES" в терминах платформенного API — а не "FAN"/"STRIP". Если применить
-// veernный/полосовой режим ПОВЕРХ уже готового плоского индекс-буфера, отрисовщик собьёт
-// связность и нарисует не те треугольники (это и было багом в предыдущей версии стаба).
 expect fun DrawScope.drawTexturedMesh(
     texture: ImageBitmap,
     positions: FloatArray,
@@ -22,11 +15,6 @@ expect fun DrawScope.drawTexturedMesh(
     indices: ShortArray
 )
 
-/**
- * Отрисовывает Shape целиком: все его ShapeDrawBitmapCommand, вписанные единой рамкой
- * (общий bounding box по всем командам сразу) в доступную область канвы, с сохранением
- * пропорций и центрированием. Каждая команда может ссылаться на свою текстуру.
- */
 @Composable
 fun ScShapeView(
     commands: List<ShapeDrawBitmapCommand>,
@@ -85,11 +73,6 @@ fun ScShapeView(
                 texCoords[i * 2 + 1] = command.getV(i) * bitmap.height
             }
 
-            // Режим триангуляции зависит от версии контейнера файла — см.
-            // SupercellSWFAssetFile.setTriangleFunction(containerVersion >= 5) в оригинале:
-            // v5+ пишет вершины как TRIANGLE_STRIP (i, i+1, i+2), более старые — как
-            // TRIANGLE_FAN (0, i+1, i+2). Раньше тут всегда стоял FAN, из-за чего на
-            // файлах v5+ фигуры триангулировались неправильно (рваные треугольные обрезки).
             val indices = ShortArray(triangleCount * 3)
             if (useStrip) {
                 for (t in 0 until triangleCount) {

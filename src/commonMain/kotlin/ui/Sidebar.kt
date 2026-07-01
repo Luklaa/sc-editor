@@ -93,10 +93,6 @@ fun GlassSidebar(
         }
     }
 
-    // Плоский список без заголовков секций — как в оригинальном Java-редакторе
-    // (DisplayObjectListPanel: обычная сортируемая JTable с колонками Id/Name/Type,
-    // без какой-либо группировки по типу). Текстуры сюда не подмешиваются — у них
-    // отдельная вкладка "Textures", как и в оригинале.
     val objectRows = remember(filteredAndSortedObjects) {
         filteredAndSortedObjects.map { (index, obj) ->
             SidebarListRow(
@@ -118,7 +114,7 @@ fun GlassSidebar(
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "Objects ${openedTab.objects.size} • Textures ${openedTab.textures.size} • v${openedTab.containerVersion}",
+                    text = "Objects: ${openedTab.objects.size} • Textures: ${openedTab.textures.size} • v${openedTab.containerVersion}",
                     color = Color(0xFF475569),
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -170,6 +166,7 @@ fun GlassSidebar(
                                     else "") + colName,
                                     color = Color(0xFF1E293B),
                                     fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).offset(y = (-2.5).dp)
@@ -186,16 +183,12 @@ fun GlassSidebar(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Filled.Search, // Заменяем символ на стандартную иконку поиска
-                                        contentDescription = "Search", // Описание для людей с ограниченными возможностями (или null, если не важно)
-                                        tint = Color(0xFF3B82F6), // Применяем твой синий цвет (как в оригинале)
-                                        // Заменяем fontSize на size. Твой текст был очень мелким (10.sp),
-                                        // поэтому иконку сделаем тоже компактной (например, 14.dp), чтобы она хорошо смотрелась в Row.
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = "Search",
+                                        tint = Color(0xFF3B82F6),
                                         modifier = Modifier
                                             .size(14.dp)
-//                                            .offset(y = (-).dp) // Твой сдвиг вверх сохраняем
                                     )
-//                                    Text("⌕", color = Color(0xFF3B82F6), fontSize = 10.sp, modifier = Modifier.offset(y = (-2.5).dp))
                                 }
                             }
                         }
@@ -380,11 +373,7 @@ fun GlassSidebar(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-//                            verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
-                            // ВАЖНО: индекс для выбора — это tex.index (позиция в полном
-                            // openedTab.textures), а НЕ позиция в отфильтрованном списке.
-                            // Раньше при активном поиске клик выбирал не ту текстуру.
                             itemsIndexed(filteredTextures) { _, tex ->
                                 val isSelected = tex.index == openedTab.activeTextureIndex
                                 Row(
@@ -490,7 +479,8 @@ fun GlassSidebar(
                         Text(
                             text = tab,
                             color = if (isActive) Color(0xFF1E293B) else Color(0xFF64748B),
-                            fontSize = 11.sp
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }

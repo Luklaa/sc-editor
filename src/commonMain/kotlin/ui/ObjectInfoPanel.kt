@@ -21,7 +21,6 @@ fun GlassObjectInfo(
 ) {
     Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
         if (selectedObject == null && selectedTexture != null) {
-            // Требование 2.3.4: информация о текстуре — только размеры холста и формат пикселей.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

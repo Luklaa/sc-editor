@@ -18,7 +18,7 @@ import dev.donutquine.editor.renderer.impl.swf.objects.MovieClipController
 
 @Composable
 fun GlassTimelinePanel(
-    controller: MovieClipController, // Добавляем этот параметр
+    controller: MovieClipController,
     modifier: Modifier = Modifier
 ) {
     var currentFrame by remember { mutableStateOf(0f) }
@@ -49,7 +49,6 @@ fun GlassTimelinePanel(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Ползунок кадров (Слайдер) [1]
             Slider(
                 value = currentFrame,
                 onValueChange = { currentFrame = it },
@@ -59,7 +58,6 @@ fun GlassTimelinePanel(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Счетчик кадров [1]
             Text(
                 text = "Кадр: ${currentFrame.toInt()} / 100",
                 color = Color(0xFF1E293B),

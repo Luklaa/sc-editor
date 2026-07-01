@@ -79,7 +79,6 @@ fun convert8BitToArgb(width: Int, height: Int, bytes: ByteArray): IntArray {
     return pixels
 }
 
-// Декодер текстур SWF/SCTX в ImageBitmap для вьюпорта
 fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: ByteArray?, pixelTypeStr: String): ImageBitmap? {
     if (rawBuffer != null) {
         val argbPixels = bufferToIntArray(rawBuffer, width, height)
@@ -200,11 +199,6 @@ fun App(
                             texturesList.add(ScTextureItem(i, tex.width, tex.height, typeStr, bitmap))
                         }
 
-                        // ВАЖНО: "Export" — это не отдельный тип объекта, а просто имя,
-                        // которое навешивается на уже существующий MovieClip (см. оригинальный
-                        // SupercellSWF.loadSc1(): movieClip.setExportName(export.name())).
-                        // Поэтому здесь мы НЕ создаём отдельные ScObjectItem с типом "Export" —
-                        // это давало дублирующиеся строки с тем же id, что и MovieClip ниже.
                         swf.movieClips?.forEach { mc ->
                             objectsList.add(ScObjectItem(mc.id, mc.exportName ?: "", "MovieClip"))
                         }
@@ -265,7 +259,6 @@ fun App(
 
                 Spacer(modifier = Modifier.height((-3).dp))
 
-                // Вкладки открытых файлов (Tabs)
                 if (openedTabs.isNotEmpty()) {
                     ui.GlassFileTabBar(
                         openedTabs = openedTabs,
@@ -279,7 +272,6 @@ fun App(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // Рабочее пространство: Сайдбар + Вьюпорт
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     if (activeTab != null) {
                         GlassSidebar(
@@ -287,19 +279,18 @@ fun App(
                             onObjectSelected = { objIndex ->
                                 openedTabs[activeTabIndex] = activeTab.copy(
                                     activeObjectIndex = objIndex,
-                                    viewMode = "OBJECT" // Переключаем на отображение объектов
+                                    viewMode = "OBJECT"
                                 )
                             },
                             onTextureSelected = { texIndex ->
                                 openedTabs[activeTabIndex] = activeTab.copy(
                                     activeTextureIndex = texIndex,
-                                    viewMode = "TEXTURE" // Переключаем на отображение текстурного атласа
+                                    viewMode = "TEXTURE"
                                 )
                             },
                             modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                         )
 
-                        // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2]
                         Box(
                             modifier = Modifier
                                 .width(8.dp)
@@ -314,7 +305,6 @@ fun App(
                         )
                     }
 
-                    // Центральный вьюпорт + плеер (если выбран MovieClip)
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
                             activeTab.objects[activeTab.activeObjectIndex]
@@ -325,10 +315,8 @@ fun App(
                             activeTab.textures[texIndex]
                         } else null
 
-                        // Определяем, нужно ли показывать текстурное полотно
                         val showTextureSheet = activeTab != null && activeTab.viewMode == "TEXTURE"
 
-                        // Создаем контроллер для мувиклипа, если выбран мувиклип и активен режим отображения объектов
                         val mcController = if (activeTab != null && activeTab.viewMode == "OBJECT" && selectedObj != null && selectedObj.type == "MovieClip") {
                             dev.donutquine.editor.renderer.impl.swf.objects.rememberMovieClipController(selectedObj)
                         } else null
@@ -384,7 +372,7 @@ fun App(
                         if (!showTextureSheet && selectedObj != null && selectedObj.type == "MovieClip" && mcController != null) {
                             Spacer(modifier = Modifier.height(12.dp))
                             GlassTimelinePanel(
-                                controller = mcController, // Передаем общий контроллер в твою панель управления
+                                controller = mcController,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }

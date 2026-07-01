@@ -52,8 +52,6 @@ actual object ImageUtils {
         val bufferedImage = BufferedImage(colorModel, writableRaster, false, null)
         return bufferedImage.toComposeImageBitmap()
     }
-
-    // Декомпрессия через внешние CLI инструменты KTX Software
     actual fun decompressKtx(ktx: KhronosTexture): ImageBitmap? {
         return try {
             val ktx1Data = KhronosTextureDataSaver.encodeKtx(ktx)
@@ -63,7 +61,6 @@ actual object ImageUtils {
             val tempKtx2 = File(tempKtx1.absolutePath.substringBeforeLast(".") + ".ktx2")
             val tempPng = File(tempKtx1.absolutePath.substringBeforeLast(".") + ".png")
 
-            // Шаг 1. Конвертируем KTX1 в KTX2
             val p1 = ProcessBuilder("ktx2ktx2", tempKtx1.absolutePath).start()
             if (p1.waitFor() != 0) {
                 tempKtx1.delete()
@@ -71,7 +68,6 @@ actual object ImageUtils {
             }
             tempKtx1.delete()
 
-            // Шаг 2. Извлекаем PNG из KTX2
             val p2 = ProcessBuilder("ktx", "extract", tempKtx2.absolutePath, tempPng.absolutePath).start()
             if (p2.waitFor() != 0) {
                 tempKtx2.delete()
@@ -79,7 +75,6 @@ actual object ImageUtils {
             }
             tempKtx2.delete()
 
-            // Шаг 3. Загружаем готовый PNG
             if (tempPng.exists()) {
                 val bufferedImage = ImageIO.read(tempPng)
                 tempPng.delete()

@@ -22,9 +22,6 @@ actual fun DrawScope.drawTexturedMesh(
             shader = BitmapShader(androidBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
         }
 
-        // android.graphics.Canvas.drawVertices ждёт ровно тот же плоский индекс-буфер
-        // (по 3 индекса на треугольник) — режим TRIANGLES соответствует Triangulator
-        // из оригинального рендерера (не FAN/STRIP).
         canvas.nativeCanvas.drawVertices(
             android.graphics.Canvas.VertexMode.TRIANGLES,
             positions.size,

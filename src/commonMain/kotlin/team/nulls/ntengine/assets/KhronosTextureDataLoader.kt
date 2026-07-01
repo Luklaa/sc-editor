@@ -2,10 +2,8 @@ package team.nulls.ntengine.assets
 
 import team.nulls.ntengine.assets.KhronosTextureLoadingException
 
-// Исправленный бинарный ридер на чистом Kotlin
 class KtxReader(private val bytes: ByteArray) {
     private var position = 0
-    // Важно: Инициализируем в false (Big Endian), как по умолчанию в Java ByteBuffer!
     private var isLittleEndian = false
 
     fun getBytes(dest: ByteArray) {
@@ -22,14 +20,11 @@ class KtxReader(private val bytes: ByteArray) {
         return if (isLittleEndian) {
             b1 or (b2 shl 8) or (b3 shl 16) or (b4 shl 24)
         } else {
-            // ИСПРАВЛЕНО: Заменили b1 на b4 в конце сдвига
             (b1 shl 24) or (b2 shl 16) or (b3 shl 8) or b4
         }
     }
 
     fun setEndianness(endianSignature: Int) {
-        // Если при чтении в формате Big Endian сигнатура равна 0x01020304,
-        // это значит, что файл на самом деле записан в Little Endian.
         if (endianSignature == 0x01020304) {
             isLittleEndian = true
         }
@@ -74,7 +69,6 @@ object KhronosTextureDataLoader {
         val mipmapLevels = reader.getInt()
         val dictSize = reader.getInt()
 
-        // Пропускаем словарь метаданных
         reader.skip(dictSize)
 
         val levels = Array(mipmapLevels) { ByteArray(0) }

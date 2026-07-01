@@ -9,7 +9,7 @@ actual fun openFilePicker(onFileSelected: (String?) -> Unit) {
     val chooser = SystemFileChooser()
     chooser.dialogTitle = "Choose Files"
 
-    val filter = FileNameExtensionFilter("Файлы Supercell (.sc, .sctx)", "sc", "sctx")
+    val filter = FileNameExtensionFilter("Supercell SWF", "sc", "sc2", "sctx")
     chooser.fileFilter = filter
     chooser.isAcceptAllFileFilterUsed = false
 

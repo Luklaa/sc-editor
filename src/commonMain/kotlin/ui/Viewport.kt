@@ -20,8 +20,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Клетчатый фон под текстурой, чтобы было видно альфа-канал (прозрачность),
-// как в Photoshop/TexturePacker — иначе прозрачные пиксели сливаются с фоном.
 fun Modifier.checkerboard(
     cellSize: Dp = 10.dp,
     colorLight: Color = Color(0xFFF3F4F6),

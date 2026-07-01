@@ -17,14 +17,6 @@ import ui.ScMatrixItem
 import ui.ScObjectItem
 import ui.ScTextureItem
 
-/**
- * Состояние проигрывателя мувиклипа (кадр + play/stop), которым управляет
- * GlassTimelinePanel и который используется ScMovieClipView для рендера.
- *
- * timeSeconds — единый "источник времени" для ВСЕГО дерева: вложенные мувиклипы
- * анимируются по своим fps/frames.size от этого же значения, а не от значения
- * currentFrame родителя (у них может быть другое число кадров и другой fps).
- */
 class MovieClipController(
     val frameCount: Int,
     val fps: Int
@@ -48,9 +40,6 @@ class MovieClipController(
 
 @Composable
 fun rememberMovieClipController(movieClip: ScObjectItem): MovieClipController {
-    // key по id мувиклипа: при переключении на другой объект в списке — контроллер
-    // (и текущий кадр/play-состояние) должен создаваться заново, а не тащить за собой
-    // состояние предыдущего мувиклипа.
     val controller = remember(movieClip.id) {
         MovieClipController(frameCount = movieClip.mcFrames.size, fps = movieClip.fps.coerceAtLeast(1))
     }
@@ -69,10 +58,6 @@ fun rememberMovieClipController(movieClip: ScObjectItem): MovieClipController {
 
 private val IDENTITY_MATRIX = ScMatrixItem()
 
-// Композиция двух аффинных матриц: результат.apply(p) == parent.apply(child.apply(p)).
-// См. dev.donutquine.swf.Matrix2x3#applyX/applyY:
-//   applyX(x,y) = x*a + y*c + this.x
-//   applyY(x,y) = y*d + x*b + this.y
 private fun composeMatrix(parent: ScMatrixItem, child: ScMatrixItem): ScMatrixItem {
     return ScMatrixItem(
         a = parent.a * child.a + parent.c * child.b,
@@ -87,8 +72,6 @@ private fun composeMatrix(parent: ScMatrixItem, child: ScMatrixItem): ScMatrixIt
 private fun ScMatrixItem.applyX(px: Float, py: Float) = px * a + py * c + x
 private fun ScMatrixItem.applyY(px: Float, py: Float) = py * d + px * b + y
 
-// Один "плоский" draw call — уже полностью посчитанные позиции вершин в системе
-// координат корневого мувиклипа (до масштабирования под канву), готовые к отрисовке.
 private class MovieClipDrawCall(
     val textureItem: ScTextureItem,
     val positions: FloatArray,
@@ -97,10 +80,6 @@ private class MovieClipDrawCall(
     val alpha: Float
 )
 
-// Рекурсивно обходит дерево MovieClip -> children -> (Shape | MovieClip | TextField),
-// на каждом уровне накапливая аффинную трансформацию и alpha, и на листьях (Shape)
-// генерирует draw call'ы с уже применённой трансформацией к вершинам.
-// depth — защита от случайной цикличности ссылок (a содержит b, который содержит a).
 private fun collectDrawCalls(
     objectId: Int,
     matrix: ScMatrixItem,
@@ -137,8 +116,6 @@ private fun collectDrawCalls(
                     texCoords[i * 2 + 1] = command.getV(i) * textureItem.bitmap.height
                 }
 
-                // Тот же режим триангуляции, что и в ScShapeView (см. комментарий там):
-                // зависит от версии контейнера, а не от того, MovieClip это или Shape.
                 val indices = ShortArray(triangleCount * 3)
                 if (useStrip) {
                     for (t in 0 until triangleCount) {
@@ -160,9 +137,6 @@ private fun collectDrawCalls(
 
         "MovieClip" -> {
             if (obj.mcFrames.isEmpty()) return
-            // Вложенный мувиклип крутит СВОЙ таймлайн независимо от родителя, по общему
-            // "часовому поясу" timeSeconds — как и в оригинале (каждый MovieClip играет
-            // на собственном fps/frames.size).
             val fps = obj.fps.coerceAtLeast(1)
             val frameIndex = if (obj.mcFrames.size <= 1) 0
             else (timeSeconds * fps).toInt().mod(obj.mcFrames.size)
@@ -189,19 +163,10 @@ private fun collectDrawCalls(
                 )
             }
         }
-
-        // TextField и прочее — пока не рендерим (нет геометрии для отображения текста).
         else -> return
     }
 }
 
-/**
- * Отрисовывает MovieClip целиком: рекурсивно проходит по frame elements текущего кадра
- * (и кадров вложенных мувиклипов — см. collectDrawCalls), собирает все Shape-меши со
- * своими накопленными трансформациями и рисует единым "коллажем", вписанным в канву
- * с сохранением пропорций (аналогично ScShapeView, но по общему bounding box'у всех
- * вложенных мешей, а не одного Shape).
- */
 @Composable
 fun ScMovieClipView(
     movieClip: ScObjectItem,
@@ -262,7 +227,7 @@ fun ScMovieClipView(
         val offsetY = (size.height - contentHeight * scale) / 2f - minY * scale
         for (call in drawCalls) {
             val bitmap = call.textureItem.bitmap ?: continue
-            if (call.alpha < 0.01f) continue // Оптимизация: полностью прозрачные меши не рисуем
+            if (call.alpha < 0.01f) continue
 
             val scaledPositions = FloatArray(call.positions.size)
             for (i in call.positions.indices step 2) {
@@ -270,7 +235,6 @@ fun ScMovieClipView(
                 scaledPositions[i + 1] = call.positions[i + 1] * scale + offsetY
             }
 
-            // Если у меша есть прозрачность, рисуем его во временном слое с альфой
             if (call.alpha < 0.99f) {
                 val paint = androidx.compose.ui.graphics.Paint().apply {
                     alpha = call.alpha
@@ -282,7 +246,6 @@ fun ScMovieClipView(
                 drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices)
                 drawContext.canvas.restore()
             } else {
-                // Обычная непрозрачная отрисовка
                 drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices)
             }
         }

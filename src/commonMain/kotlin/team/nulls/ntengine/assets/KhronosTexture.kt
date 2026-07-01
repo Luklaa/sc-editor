@@ -10,7 +10,7 @@ data class KhronosTexture(
     val height: Int,
     val levels: Array<ByteArray>
 ) {
-    // В Kotlin массивы требуют переопределения equals/hashCode для корректного сравнения контента
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false

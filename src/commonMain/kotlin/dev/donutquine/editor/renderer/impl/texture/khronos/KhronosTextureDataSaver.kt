@@ -14,7 +14,6 @@ object KhronosTextureDataSaver {
         val stream = ByteArrayOutputStream()
         stream.write(HEADER)
 
-        // Записываем порядок байт (Little Endian сигнатура) в Big Endian потоке
         writeInt(stream, 0x04030201)
 
         writeInt(stream, ktx.glType)
@@ -24,12 +23,12 @@ object KhronosTextureDataSaver {
         writeInt(stream, ktx.glBaseInternalFormat)
         writeInt(stream, ktx.width)
         writeInt(stream, ktx.height)
-        writeInt(stream, 0) // pixelDepth
-        writeInt(stream, 0) // numberOfArrayElements
-        writeInt(stream, 1) // numberOfFaces
+        writeInt(stream, 0)
+        writeInt(stream, 0)
+        writeInt(stream, 1)
 
         writeInt(stream, ktx.levels.size)
-        writeInt(stream, 0) // dict size (dict stuff)
+        writeInt(stream, 0)
 
         for (level in ktx.levels) {
             writeInt(stream, level.size)
