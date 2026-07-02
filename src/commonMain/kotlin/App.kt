@@ -33,6 +33,8 @@ import ui.ScMovieClipChildItem
 import ui.ScMovieClipFrameItem
 import ui.ScMovieClipFrameElementItem
 import ui.ScRectItem
+import ui.ScMovieClipModifierItem
+import ui.ScMovieClipModifierType
 import dev.donutquine.editor.renderer.impl.swf.objects.ScMovieClipView
 import dev.donutquine.editor.renderer.impl.swf.objects.rememberMovieClipController
 import java.nio.ByteBuffer
@@ -88,6 +90,7 @@ fun convert8BitToArgb(width: Int, height: Int, bytes: ByteArray): IntArray {
     return pixels
 }
 
+// Декодер текстур SWF/SCTX в ImageBitmap для вьюпорта
 fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: ByteArray?, pixelTypeStr: String): ImageBitmap? {
     if (rawBuffer != null) {
         val argbPixels = bufferToIntArray(rawBuffer, width, height)
@@ -115,7 +118,6 @@ fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: Byt
     return null
 }
 
-@Suppress("UnusedBoxWithConstraintsScope")
 @Composable
 fun App(
     onTitleChanged: (String) -> Unit,
@@ -130,6 +132,7 @@ fun App(
     val openedTabs = remember { mutableStateListOf<OpenedTab>() }
     var activeTabIndex by remember { mutableStateOf(-1) }
 
+    // Динамическая ширина сайдбара
     var sidebarWidth by remember { mutableStateOf(320.dp) }
 
     val activeTab = if (activeTabIndex in openedTabs.indices) openedTabs[activeTabIndex] else null
@@ -151,6 +154,7 @@ fun App(
                     val texturesList = mutableListOf<ScTextureItem>()
                     val objectsList = mutableListOf<ScObjectItem>()
                     val matrixBanksList = mutableListOf<ScMatrixBankItem>()
+                    val modifiersList = mutableListOf<ScMovieClipModifierItem>()
                     var loadedImage: ImageBitmap? = null
                     var statusText = "Загрузка..."
                     var containerVersion = 1
@@ -209,6 +213,11 @@ fun App(
                             texturesList.add(ScTextureItem(i, tex.width, tex.height, typeStr, bitmap))
                         }
 
+                        // ВАЖНО: "Export" — это не отдельный тип объекта, а просто имя,
+                        // которое навешивается на уже существующий MovieClip (см. оригинальный
+                        // SupercellSWF.loadSc1(): movieClip.setExportName(export.name())).
+                        // Поэтому здесь мы НЕ создаём отдельные ScObjectItem с типом "Export" —
+                        // это давало дублирующиеся строки с тем же id, что и MovieClip ниже.
                         swf.movieClips?.forEach { mc ->
                             val mcChildren = mc.children.map { child ->
                                 ScMovieClipChildItem(id = child.id(), blend = child.blend(), name = child.name())
@@ -245,6 +254,25 @@ fun App(
                             objectsList.add(ScObjectItem(tf.id, "", "TextField"))
                         }
 
+                        // Маркеры маскинга (Tag.MODIFIER_STATE_2/3/4) — см. комментарий у
+                        // ScMovieClipModifierType. Это не DisplayObject, отдельный список в
+                        // SupercellSWF, но id у них из того же общего пространства id, что
+                        // и у MovieClip/Shape/TextField (см. SupercellSWF.addMovieClipModifier,
+                        // nextId считается по сумме всех четырёх списков).
+                        swf.movieClipModifiers?.forEach { modifier ->
+                            val type = when (modifier.tag) {
+                                dev.donutquine.swf.Tag.MODIFIER_STATE_2 -> ScMovieClipModifierType.MASK_BEGIN
+                                dev.donutquine.swf.Tag.MODIFIER_STATE_3 -> ScMovieClipModifierType.MASKED_BEGIN
+                                dev.donutquine.swf.Tag.MODIFIER_STATE_4 -> ScMovieClipModifierType.MASK_END
+                                else -> null
+                            }
+                            if (type != null) {
+                                modifiersList.add(ScMovieClipModifierItem(modifier.id, type))
+                            }
+                        }
+
+                        // Банки матриц/цвет-трансформов, на которые ссылаются mcFrames через
+                        // matrixBankIndex мувиклипа (см. SupercellSWF.getMatrixBank(index)).
                         swf.matrixBanks?.forEach { bank ->
                             matrixBanksList.add(
                                 ScMatrixBankItem(
@@ -265,7 +293,20 @@ fun App(
                         }
                     }
 
-                    openedTabs.add(OpenedTab(fileName, path, containerVersion, texturesList, objectsList, -1, 0, statusText, matrixBanksList))
+                    openedTabs.add(
+                        OpenedTab(
+                            name = fileName,
+                            path = path,
+                            containerVersion = containerVersion,
+                            textures = texturesList,
+                            objects = objectsList,
+                            activeObjectIndex = -1,
+                            activeTextureIndex = 0,
+                            statusText = statusText,
+                            matrixBanks = matrixBanksList,
+                            modifiers = modifiersList
+                        )
+                    )
                     activeTabIndex = openedTabs.size - 1
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -304,14 +345,15 @@ fun App(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
-                .padding(12.dp)
+                .padding(16.dp)
         ) {
-            val sidebarMaxWidth = maxWidth - 200.dp
+            val sidebarMaxWidth = (maxWidth * 0.5f).coerceAtLeast(320.dp)
 
             Column(modifier = Modifier.fillMaxSize()) {
 
-                Spacer(modifier = Modifier.height((-3).dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
+                // Вкладки открытых файлов (Tabs)
                 if (openedTabs.isNotEmpty()) {
                     ui.GlassFileTabBar(
                         openedTabs = openedTabs,
@@ -325,7 +367,7 @@ fun App(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-
+                // Рабочее пространство: Сайдбар + Вьюпорт
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     if (activeTab != null) {
                         GlassSidebar(
@@ -339,6 +381,7 @@ fun App(
                             modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                         )
 
+                        // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2]
                         Box(
                             modifier = Modifier
                                 .width(8.dp)
@@ -353,7 +396,7 @@ fun App(
                         )
                     }
 
-
+                    // Центральный вьюпорт + плеер (если выбран MovieClip)
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
                             activeTab.objects[activeTab.activeObjectIndex]
@@ -366,10 +409,17 @@ fun App(
 
                         val viewMode = activeTab?.viewMode ?: "OBJECT"
 
+                        // viewMode переключается явно в onObjectSelected/onTextureSelected выше:
+                        // раньше выбор текстуры не мог "перебить" ранее выбранный объект — вьюпорт
+                        // жёстко приоритезировал object-рендер, даже когда пользователь кликал
+                        // по текстуре во вкладке Textures. Теперь показ текстуры-атласа возможен
+                        // только когда viewMode == "TEXTURE" (или объект вовсе не выбран).
                         val isShapeSelected = viewMode == "OBJECT" && selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
                         val isMovieClipSelected = viewMode == "OBJECT" && selectedObj?.type == "MovieClip" && selectedObj.mcFrames.isNotEmpty()
                         val showTextureCanvas = !isShapeSelected && !isMovieClipSelected
 
+                        // Плеер мувиклипа (текущий кадр + play/stop). Пересоздаётся при смене
+                        // выбранного мувиклипа — см. key(movieClip.id) внутри rememberMovieClipController.
                         val mcController = if (isMovieClipSelected && selectedObj != null) {
                             rememberMovieClipController(selectedObj)
                         } else null
@@ -402,6 +452,7 @@ fun App(
                                             movieClip = selectedObj,
                                             objectsById = activeTab.objectsById,
                                             matrixBanks = activeTab.matrixBanks,
+                                            modifiersById = activeTab.modifiersById,
                                             textures = activeTab.textures,
                                             useStrip = activeTab.containerVersion >= 5,
                                             timeSeconds = mcController.timeSeconds,
