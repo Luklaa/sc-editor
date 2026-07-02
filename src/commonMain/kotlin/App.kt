@@ -91,7 +91,6 @@ fun convert8BitToArgb(width: Int, height: Int, bytes: ByteArray): IntArray {
     return pixels
 }
 
-// Декодер текстур SWF/SCTX в ImageBitmap для вьюпорта
 fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: ByteArray?, pixelTypeStr: String): ImageBitmap? {
     if (rawBuffer != null) {
         val argbPixels = bufferToIntArray(rawBuffer, width, height)
@@ -135,7 +134,7 @@ fun App(
     var activeTabIndex by remember { mutableStateOf(-1) }
 
     // Динамическая ширина сайдбара
-    var sidebarWidth by remember { mutableStateOf(320.dp) }
+    var sidebarWidth by remember { mutableStateOf(280.dp) }
 
     val activeTab = if (activeTabIndex in openedTabs.indices) openedTabs[activeTabIndex] else null
 
@@ -343,161 +342,174 @@ fun App(
     }
 
     MaterialTheme {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
-                .padding(12.dp)
-        ) {
-            val sidebarMaxWidth = maxWidth - 200.dp
+        Box(modifier = Modifier.fillMaxSize()) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
+                    .padding(12.dp)
+            ) {
+                val sidebarMaxWidth = maxWidth - 200.dp
 
-            Column(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
 
-                Spacer(modifier = Modifier.height((-3).dp))
+                    Spacer(modifier = Modifier.height((-3).dp))
 
-                // Вкладки открытых файлов (Tabs)
-                if (openedTabs.isNotEmpty()) {
-                    ui.GlassFileTabBar(
-                        openedTabs = openedTabs,
-                        activeTabIndex = activeTabIndex,
-                        onTabSelect = { activeTabIndex = it },
-                        onTabClose = { index ->
-                            openedTabs.removeAt(index)
-                            activeTabIndex = if (openedTabs.isEmpty()) -1 else openedTabs.size - 1
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                // Рабочее пространство: Сайдбар + Вьюпорт
-                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    if (activeTab != null) {
-                        GlassSidebar(
-                            openedTab = activeTab,
-                            onObjectSelected = { objIndex ->
-                                openedTabs[activeTabIndex] = activeTab.copy(activeObjectIndex = objIndex, viewMode = "OBJECT")
-                            },
-                            onTextureSelected = { texIndex ->
-                                openedTabs[activeTabIndex] = activeTab.copy(activeTextureIndex = texIndex, viewMode = "TEXTURE")
-                            },
-                            modifier = Modifier.width(sidebarWidth).fillMaxHeight()
+                    // Вкладки открытых файлов (Tabs)
+                    if (openedTabs.isNotEmpty()) {
+                        ui.GlassFileTabBar(
+                            openedTabs = openedTabs,
+                            activeTabIndex = activeTabIndex,
+                            onTabSelect = { activeTabIndex = it },
+                            onTabClose = { index ->
+                                openedTabs.removeAt(index)
+                                activeTabIndex = if (openedTabs.isEmpty()) -1 else openedTabs.size - 1
+                            }
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
 
-                        // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2]
-                        Box(
-                            modifier = Modifier
-                                .width(8.dp)
-                                .fillMaxHeight()
-                                .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)))
-                                .pointerInput(Unit) {
-                                    detectDragGestures { change, dragAmount ->
-                                        change.consume()
-                                        sidebarWidth = (sidebarWidth + dragAmount.x.toDp()).coerceIn(220.dp, sidebarMaxWidth)
-                                    }
+                    // Рабочее пространство: Сайдбар + Вьюпорт
+                    Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        if (activeTab != null) {
+                            GlassSidebar(
+                                openedTab = activeTab,
+                                onObjectSelected = { objIndex ->
+                                    openedTabs[activeTabIndex] = activeTab.copy(activeObjectIndex = objIndex, viewMode = "OBJECT")
                                 },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
+                                onTextureSelected = { texIndex ->
+                                    openedTabs[activeTabIndex] = activeTab.copy(activeTextureIndex = texIndex, viewMode = "TEXTURE")
+                                },
+                                modifier = Modifier.width(sidebarWidth).fillMaxHeight()
+                            )
+
+                            // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2]
+                            Box(
                                 modifier = Modifier
-                                    .background(Color.Black.copy(alpha = 0.06f), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 3.dp, vertical = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                    .width(8.dp)
+                                    .fillMaxHeight()
+                                    .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)))
+                                    .pointerInput(Unit) {
+                                        detectDragGestures { change, dragAmount ->
+                                            change.consume()
+                                            sidebarWidth = (sidebarWidth + dragAmount.x.toDp()).coerceIn(220.dp, sidebarMaxWidth)
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
-                                repeat(3) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(2.dp)
-                                            .background(Color.Black.copy(alpha = 1f), CircleShape)
-                                    )
+                                Column(
+                                    modifier = Modifier
+                                        .background(Color.Black.copy(alpha = 0.06f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 3.dp, vertical = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    repeat(3) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(2.dp)
+                                                .background(Color.Black.copy(alpha = 1f), CircleShape)
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Центральный вьюпорт + плеер (если выбран MovieClip)
-                    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                        val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
-                            activeTab.objects[activeTab.activeObjectIndex]
-                        } else null
+                        // Центральный вьюпорт + плеер (если выбран MovieClip)
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                            val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
+                                activeTab.objects[activeTab.activeObjectIndex]
+                            } else null
 
-                        val currentTexture = if (activeTab != null && activeTab.textures.isNotEmpty()) {
-                            val texIndex = activeTab.activeTextureIndex.coerceIn(activeTab.textures.indices)
-                            activeTab.textures[texIndex]
-                        } else null
+                            val currentTexture = if (activeTab != null && activeTab.textures.isNotEmpty()) {
+                                val texIndex = activeTab.activeTextureIndex.coerceIn(activeTab.textures.indices)
+                                activeTab.textures[texIndex]
+                            } else null
 
-                        val viewMode = activeTab?.viewMode ?: "OBJECT"
+                            val viewMode = activeTab?.viewMode ?: "OBJECT"
 
-                        // viewMode переключается явно в onObjectSelected/onTextureSelected выше:
-                        // раньше выбор текстуры не мог "перебить" ранее выбранный объект — вьюпорт
-                        // жёстко приоритезировал object-рендер, даже когда пользователь кликал
-                        // по текстуре во вкладке Textures. Теперь показ текстуры-атласа возможен
-                        // только когда viewMode == "TEXTURE" (или объект вовсе не выбран).
-                        val isShapeSelected = viewMode == "OBJECT" && selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
-                        val isMovieClipSelected = viewMode == "OBJECT" && selectedObj?.type == "MovieClip" && selectedObj.mcFrames.isNotEmpty()
-                        val showTextureCanvas = !isShapeSelected && !isMovieClipSelected
+                            // viewMode переключается явно в onObjectSelected/onTextureSelected выше:
+                            // раньше выбор текстуры не мог "перебить" ранее выбранный объект — вьюпорт
+                            // жёстко приоритезировал object-рендер, даже когда пользователь кликал
+                            // по текстуре во вкладке Textures. Теперь показ текстуры-атласа возможен
+                            // только когда viewMode == "TEXTURE" (или объект вовсе не выбран).
+                            val isShapeSelected = viewMode == "OBJECT" && selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
+                            val isMovieClipSelected = viewMode == "OBJECT" && selectedObj?.type == "MovieClip" && selectedObj.mcFrames.isNotEmpty()
+                            val showTextureCanvas = !isShapeSelected && !isMovieClipSelected
 
-                        // Плеер мувиклипа (текущий кадр + play/stop). Пересоздаётся при смене
-                        // выбранного мувиклипа — см. key(movieClip.id) внутри rememberMovieClipController.
-                        val mcController = if (isMovieClipSelected && selectedObj != null) {
-                            rememberMovieClipController(selectedObj)
-                        } else null
+                            // Плеер мувиклипа (текущий кадр + play/stop). Пересоздаётся при смене
+                            // выбранного мувиклипа — см. key(movieClip.id) внутри rememberMovieClipController.
+                            val mcController = if (isMovieClipSelected && selectedObj != null) {
+                                rememberMovieClipController(selectedObj)
+                            } else null
 
-                        GlassViewport(
-                            loadedImage = if (showTextureCanvas) currentTexture?.bitmap else null,
-                            infoLabel = when {
-                                isShapeSelected -> "Shape ${selectedObj?.id} · команд: ${selectedObj?.shapeCommands?.size}"
-                                isMovieClipSelected -> {
-                                    val nameSuffix = if (!selectedObj?.name.isNullOrEmpty()) " · ${selectedObj?.name}" else ""
-                                    "MovieClip ${selectedObj?.id}$nameSuffix · ${selectedObj?.fps} fps · кадр ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
-                                }
-                                currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
-                                else -> null
-                            },
-                            content = when {
-                                isShapeSelected && activeTab != null && selectedObj != null -> {
-                                    {
-                                        dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
-                                            commands = selectedObj.shapeCommands,
-                                            textures = activeTab.textures,
-                                            useStrip = activeTab.containerVersion >= 5,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
+                            GlassViewport(
+                                loadedImage = if (showTextureCanvas) currentTexture?.bitmap else null,
+                                infoLabel = when {
+                                    isShapeSelected -> "Shape ${selectedObj?.id} · команд: ${selectedObj?.shapeCommands?.size}"
+                                    isMovieClipSelected -> {
+                                        val nameSuffix = if (!selectedObj?.name.isNullOrEmpty()) " · ${selectedObj?.name}" else ""
+                                        "MovieClip ${selectedObj?.id}$nameSuffix · ${selectedObj?.fps} fps · кадр ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
                                     }
-                                }
-                                isMovieClipSelected && activeTab != null && selectedObj != null && mcController != null -> {
-                                    {
-                                        ScMovieClipView(
-                                            movieClip = selectedObj,
-                                            objectsById = activeTab.objectsById,
-                                            matrixBanks = activeTab.matrixBanks,
-                                            modifiersById = activeTab.modifiersById,
-                                            textures = activeTab.textures,
-                                            useStrip = activeTab.containerVersion >= 5,
-                                            timeSeconds = mcController.timeSeconds,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
+                                    currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
+                                    else -> null
+                                },
+                                content = when {
+                                    isShapeSelected && activeTab != null && selectedObj != null -> {
+                                        {
+                                            dev.donutquine.editor.renderer.impl.swf.objects.ScShapeView(
+                                                commands = selectedObj.shapeCommands,
+                                                textures = activeTab.textures,
+                                                useStrip = activeTab.containerVersion >= 5,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
                                     }
-                                }
-                                else -> null
-                            },
-                            modifier = Modifier.weight(1f).fillMaxWidth()
-                        )
-
-                        if (isMovieClipSelected && selectedObj != null && mcController != null) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            GlassTimelinePanel(
-                                frameCount = selectedObj.mcFrames.size,
-                                currentFrame = mcController.currentFrame,
-                                isPlaying = mcController.isPlaying,
-                                onFrameChange = { mcController.setFrame(it) },
-                                onTogglePlaying = { mcController.togglePlaying() },
-                                modifier = Modifier.fillMaxWidth()
+                                    isMovieClipSelected && activeTab != null && selectedObj != null && mcController != null -> {
+                                        {
+                                            ScMovieClipView(
+                                                movieClip = selectedObj,
+                                                objectsById = activeTab.objectsById,
+                                                matrixBanks = activeTab.matrixBanks,
+                                                modifiersById = activeTab.modifiersById,
+                                                textures = activeTab.textures,
+                                                useStrip = activeTab.containerVersion >= 5,
+                                                timeSeconds = mcController.timeSeconds,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                    else -> null
+                                },
+                                modifier = Modifier.weight(1f).fillMaxWidth()
                             )
+
+                            if (isMovieClipSelected && selectedObj != null && mcController != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                GlassTimelinePanel(
+                                    frameCount = selectedObj.mcFrames.size,
+                                    currentFrame = mcController.currentFrame,
+                                    isPlaying = mcController.isPlaying,
+                                    onFrameChange = { mcController.setFrame(it) },
+                                    onTogglePlaying = { mcController.togglePlaying() },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
             }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Black.copy(alpha = 0.10f), Color.Transparent)
+                        )
+                    )
+            )
         }
     }
 }
