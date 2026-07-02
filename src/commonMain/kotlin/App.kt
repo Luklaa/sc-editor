@@ -118,6 +118,7 @@ fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: Byt
     return null
 }
 
+@Suppress("UnusedBoxWithConstraintsScope")
 @Composable
 fun App(
     onTitleChanged: (String) -> Unit,
@@ -201,7 +202,7 @@ fun App(
                         val tfCount = swf.textFields?.size ?: 0
 
                         statusText = "Файл: $fileName\nВерсия контейнера: ${swf.containerVersion}\n" +
-                            "Текстур: $tCount | Экспортов: $exportsCount | Мувиклипов: $mcCount | Форм: $sCount | Текстовых полей: $tfCount"
+                                "Текстур: $tCount | Экспортов: $exportsCount | Мувиклипов: $mcCount | Форм: $sCount | Текстовых полей: $tfCount"
 
                         for (i in 0 until tCount) {
                             val tex = swf.textures[i]
@@ -345,13 +346,13 @@ fun App(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
-                .padding(16.dp)
+                .padding(12.dp)
         ) {
-            val sidebarMaxWidth = (maxWidth * 0.5f).coerceAtLeast(320.dp)
+            val sidebarMaxWidth = maxWidth - 200.dp
 
             Column(modifier = Modifier.fillMaxSize()) {
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height((-3).dp))
 
                 // Вкладки открытых файлов (Tabs)
                 if (openedTabs.isNotEmpty()) {
