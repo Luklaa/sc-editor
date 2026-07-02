@@ -9,7 +9,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
@@ -23,6 +25,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
@@ -38,6 +42,67 @@ private data class SidebarListRow(
     val subtitle: String,
     val type: String = ""
 )
+
+// Тонкий скроллбар-индикатор поверх LazyColumn (правый край, прижат к контенту).
+// Не показывается, если весь контент помещается на экран целиком. Бегунок можно
+// перетаскивать курсором — реальная зона захвата шире (10dp), чем видимая полоска (4dp).
+@Composable
+private fun BoxScope.VerticalListScrollbar(listState: LazyListState) {
+    val layoutInfo = listState.layoutInfo
+    val totalItems = layoutInfo.totalItemsCount
+    val visibleItems = layoutInfo.visibleItemsInfo.size
+    if (totalItems == 0 || visibleItems == 0 || totalItems <= visibleItems) return
+
+    val thumbFraction = (visibleItems.toFloat() / totalItems.toFloat()).coerceIn(0.06f, 1f)
+    val scrollableRange = (totalItems - visibleItems).coerceAtLeast(1)
+    val progress = (listState.firstVisibleItemIndex.toFloat() / scrollableRange.toFloat()).coerceIn(0f, 1f)
+
+    val coroutineScope = rememberCoroutineScope()
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .align(Alignment.CenterEnd)
+            .fillMaxHeight()
+            .padding(vertical = 2.dp)
+            .width(10.dp)
+    ) {
+        val trackHeightPx = constraints.maxHeight.toFloat()
+        val trackHeight = maxHeight
+        val thumbHeight = trackHeight * thumbFraction
+        val thumbOffset = (trackHeight - thumbHeight) * progress
+        val thumbHeightPx = trackHeightPx * thumbFraction
+        val draggableRangePx = (trackHeightPx - thumbHeightPx).coerceAtLeast(1f)
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxHeight()
+                .width(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.Black.copy(alpha = 0.05f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = thumbOffset)
+                .height(thumbHeight)
+                .fillMaxWidth()
+                .padding(horizontal = 3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.Black.copy(alpha = 0.22f))
+                .pointerInput(totalItems, visibleItems, draggableRangePx) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val deltaFraction = dragAmount.y / draggableRangePx
+                        val newIndex = (listState.firstVisibleItemIndex + deltaFraction * scrollableRange)
+                            .roundToInt()
+                            .coerceIn(0, scrollableRange)
+                        coroutineScope.launch { listState.scrollToItem(newIndex) }
+                    }
+                }
+        )
+    }
+}
 
 @Composable
 fun GlassSidebar(
@@ -57,6 +122,9 @@ fun GlassSidebar(
     var idQuery by remember { mutableStateOf("") }
     var nameQuery by remember { mutableStateOf("") }
     var typeQuery by remember { mutableStateOf("") }
+
+    val objectsListState = rememberLazyListState()
+    val texturesListState = rememberLazyListState()
 
     val normalizedSearch = searchQuery.trim().lowercase()
 
@@ -247,7 +315,8 @@ fun GlassSidebar(
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
+                            state = objectsListState,
+                            modifier = Modifier.fillMaxSize().padding(end = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             itemsIndexed(objectRows) { _, row ->
@@ -372,7 +441,8 @@ fun GlassSidebar(
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
+                            state = texturesListState,
+                            modifier = Modifier.fillMaxSize().padding(end = 8.dp),
                         ) {
                             itemsIndexed(filteredTextures) { _, tex ->
                                 val isSelected = tex.index == openedTab.activeTextureIndex
@@ -409,6 +479,12 @@ fun GlassSidebar(
                             openedTab.textures[openedTab.activeTextureIndex]
                         } else null
                     GlassObjectInfo(selectedObj, selectedTex, openedTab)
+                }
+
+                if (activeBottomTab == "Objects") {
+                    VerticalListScrollbar(objectsListState)
+                } else if (activeBottomTab == "Textures") {
+                    VerticalListScrollbar(texturesListState)
                 }
             }
 
@@ -462,7 +538,7 @@ fun GlassSidebar(
                     .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
                     .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
                     .padding(2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 listOf("Objects", "Info", "Textures").forEach { tab ->
                     val isActive = activeBottomTab == tab

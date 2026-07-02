@@ -2,6 +2,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -393,8 +394,25 @@ fun App(
                                         change.consume()
                                         sidebarWidth = (sidebarWidth + dragAmount.x.toDp()).coerceIn(220.dp, sidebarMaxWidth)
                                     }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .background(Color.Black.copy(alpha = 0.06f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 3.dp, vertical = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                repeat(3) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(2.dp)
+                                            .background(Color.Black.copy(alpha = 1f), CircleShape)
+                                    )
                                 }
-                        )
+                            }
+                        }
                     }
 
                     // Центральный вьюпорт + плеер (если выбран MovieClip)

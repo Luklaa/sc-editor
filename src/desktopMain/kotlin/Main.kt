@@ -20,6 +20,7 @@ fun main() = application {
         UIManager.put("TitlePane.background", Color(223, 231, 245))
         UIManager.put("TitlePane.inactiveBackground", Color(223, 231, 245))
         UIManager.put("TitlePane.foreground", Color(30, 41, 59))
+        UIManager.put("TitlePane.borderColor", Color(0, 0, 0, 40))
 
         UIManager.put("PopupMenu.background", Color(255, 255, 255, 110))
         UIManager.put("PopupMenu.borderColor", Color(226, 232, 240))
