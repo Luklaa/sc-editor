@@ -29,36 +29,9 @@ fun ScShapeView(
     Canvas(modifier = modifier) {
         if (commands.isEmpty()) return@Canvas
 
-        var minX = Float.MAX_VALUE
-        var minY = Float.MAX_VALUE
-        var maxX = -Float.MAX_VALUE
-        var maxY = -Float.MAX_VALUE
-
-        for (command in commands) {
-            val vertexCount = command.vertexCount
-            for (i in 0 until vertexCount) {
-                val x = command.getX(i)
-                val y = command.getY(i)
-                if (x < minX) minX = x
-                if (x > maxX) maxX = x
-                if (y < minY) minY = y
-                if (y > maxY) maxY = y
-            }
-        }
-
-        if (minX > maxX || minY > maxY) return@Canvas
-
-        val shapeWidth = (maxX - minX).coerceAtLeast(1f)
-        val shapeHeight = (maxY - minY).coerceAtLeast(1f)
-
-        val paddingPx = 24f
-        val availableWidth = size.width - paddingPx * 2f
-        val availableHeight = size.height - paddingPx * 2f
-        if (availableWidth <= 0f || availableHeight <= 0f) return@Canvas
-
-        val scale = minOf(availableWidth / shapeWidth, availableHeight / shapeHeight)
-        val offsetX = (size.width - shapeWidth * scale) / 2f - minX * scale
-        val offsetY = (size.height - shapeHeight * scale) / 2f - minY * scale
+        val scale = 1f
+        val offsetX = size.width / 2f
+        val offsetY = size.height / 2f
 
         for (command in commands) {
             val textureItem = textures.getOrNull(command.textureIndex) ?: continue

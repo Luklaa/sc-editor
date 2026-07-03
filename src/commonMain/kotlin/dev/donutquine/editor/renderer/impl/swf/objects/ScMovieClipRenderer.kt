@@ -391,34 +391,9 @@ private fun computeFitTransform(
     )
     if (probe.isEmpty()) return null
 
-    var minX = Float.MAX_VALUE
-    var minY = Float.MAX_VALUE
-    var maxX = -Float.MAX_VALUE
-    var maxY = -Float.MAX_VALUE
-    for (call in probe) {
-        var i = 0
-        while (i < call.positions.size) {
-            val px = call.positions[i]
-            val py = call.positions[i + 1]
-            if (px < minX) minX = px
-            if (px > maxX) maxX = px
-            if (py < minY) minY = py
-            if (py > maxY) maxY = py
-            i += 2
-        }
-    }
-    if (minX > maxX || minY > maxY) return null
-
-    val contentWidth = (maxX - minX).coerceAtLeast(1f)
-    val contentHeight = (maxY - minY).coerceAtLeast(1f)
-    val paddingPx = 24f
-    val availableWidth = canvasWidth - paddingPx * 2f
-    val availableHeight = canvasHeight - paddingPx * 2f
-    if (availableWidth <= 0f || availableHeight <= 0f) return null
-
-    val scale = minOf(availableWidth / contentWidth, availableHeight / contentHeight)
-    val offsetX = (canvasWidth - contentWidth * scale) / 2f - minX * scale
-    val offsetY = (canvasHeight - contentHeight * scale) / 2f - minY * scale
+    val scale = 1f
+    val offsetX = canvasWidth / 2f
+    val offsetY = canvasHeight / 2f
     return FitTransform(scale, offsetX, offsetY)
 }
 
@@ -602,7 +577,7 @@ fun ScMovieClipView(
         // иначе редактирование дёргало бы масштаб канвы на каждый кадр драга.
         val fit = computeFitTransform(
             movieClip, objectsById, matrixBanks, modifiersById, textures,
-            useStrip, timeSeconds, size.width, size.height
+            useStrip, 0f, size.width, size.height
         ) ?: return@Canvas
         val scale = fit.scale
         val offsetX = fit.offsetX

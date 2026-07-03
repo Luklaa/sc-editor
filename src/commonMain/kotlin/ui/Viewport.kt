@@ -11,7 +11,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.translate
+import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -23,32 +25,47 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.isTertiaryPressed
+import androidx.compose.ui.input.pointer.isAltPressed
 
 
 fun Modifier.checkerboard(
     cellSize: Dp = 10.dp,
     colorLight: Color = Color(0xFFBFBFBF),
-    colorDark: Color = Color(0xFF8F8F8F)
-): Modifier = drawBehind {
-    val cellPx = cellSize.toPx()
-    if (cellPx <= 0f) return@drawBehind
-    var row = 0
-    var y = 0f
-    while (y < size.height) {
-        var col = 0
-        var x = 0f
-        while (x < size.width) {
-            val color = if ((row + col) % 2 == 0) colorLight else colorDark
+    colorDark: Color = Color(0xFF8F8F8F),
+    offsetX: Float = 0f,
+    offsetY: Float = 0f
+): Modifier = drawWithCache {
+    val cellPx = cellSize.toPx().roundToInt().coerceAtLeast(1)
+    val tileSize = cellPx * 2
+    val tileBitmap = ImageBitmap(tileSize, tileSize)
+    val tileCanvas = androidx.compose.ui.graphics.Canvas(tileBitmap)
+    val lightPaint = androidx.compose.ui.graphics.Paint().apply { color = colorLight }
+    val darkPaint = androidx.compose.ui.graphics.Paint().apply { color = colorDark }
+    tileCanvas.drawRect(androidx.compose.ui.geometry.Rect(0f, 0f, cellPx.toFloat(), cellPx.toFloat()), lightPaint)
+    tileCanvas.drawRect(androidx.compose.ui.geometry.Rect(cellPx.toFloat(), 0f, tileSize.toFloat(), cellPx.toFloat()), darkPaint)
+    tileCanvas.drawRect(androidx.compose.ui.geometry.Rect(0f, cellPx.toFloat(), cellPx.toFloat(), tileSize.toFloat()), darkPaint)
+    tileCanvas.drawRect(androidx.compose.ui.geometry.Rect(cellPx.toFloat(), cellPx.toFloat(), tileSize.toFloat(), tileSize.toFloat()), lightPaint)
+
+    val shader = androidx.compose.ui.graphics.ImageShader(
+        tileBitmap,
+        androidx.compose.ui.graphics.TileMode.Repeated,
+        androidx.compose.ui.graphics.TileMode.Repeated
+    )
+    val brush = object : androidx.compose.ui.graphics.ShaderBrush() {
+        override fun createShader(size: Size) = shader
+    }
+
+    onDrawBehind {
+        val tileSizeF = tileSize.toFloat()
+        val shiftX = offsetX.mod(tileSizeF) - tileSizeF
+        val shiftY = offsetY.mod(tileSizeF) - tileSizeF
+        translate(left = shiftX, top = shiftY) {
             drawRect(
-                color = color,
-                topLeft = Offset(x, y),
-                size = Size(minOf(cellPx, size.width - x), minOf(cellPx, size.height - y))
+                brush = brush,
+                topLeft = Offset.Zero,
+                size = Size(size.width + tileSizeF * 3, size.height + tileSizeF * 3)
             )
-            col++
-            x += cellPx
         }
-        row++
-        y += cellPx
     }
 }
 
@@ -74,7 +91,7 @@ fun GlassViewport(
                         .fillMaxSize()
                         .clip(RoundedCornerShape(16.dp))
                         .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                        .pointerInput(Unit) {
+                        .pointerInput(camera) {
                             awaitPointerEventScope {
                                 var dragging = false
                                 var lastPosition = Offset.Zero
@@ -102,6 +119,15 @@ fun GlassViewport(
                                             // Используем свойство БЕЗ скобок и аргументов
                                             if (!event.buttons.isTertiaryPressed) dragging = false
                                         }
+                                        PointerEventType.Scroll -> {
+                                            if (event.keyboardModifiers.isAltPressed) {
+                                                val change = event.changes.first()
+                                                val delta = change.scrollDelta.y
+                                                val factor = if (delta < 0) 1.1f else 1f / 1.1f
+                                                camera.zoom = (camera.zoom * factor).coerceIn(0.1f, 20f)
+                                                change.consume()
+                                            }
+                                        }
                                         else -> Unit
                                     }
                                 }
@@ -111,25 +137,34 @@ fun GlassViewport(
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .checkerboard()
-                            .graphicsLayer(
-                                scaleX = camera.zoom,
-                                scaleY = camera.zoom,
-                                translationX = camera.panX,
-                                translationY = camera.panY
-                            ),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (content != null) {
-                            content()
-                        } else if (loadedImage != null) {
-                            Image(
-                                bitmap = loadedImage,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .checkerboard(offsetX = camera.panX, offsetY = camera.panY)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = camera.zoom,
+                                    scaleY = camera.zoom,
+                                    translationX = camera.panX,
+                                    translationY = camera.panY
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (content != null) {
+                                content()
+                            } else if (loadedImage != null) {
+                                Image(
+                                    bitmap = loadedImage,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 }
