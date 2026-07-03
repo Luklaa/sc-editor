@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.sp
 
 fun Modifier.checkerboard(
     cellSize: Dp = 10.dp,
-    colorLight: Color = Color(0xFFF3F4F6),
-    colorDark: Color = Color(0xFFDCE0E5)
+    colorLight: Color = Color(0xFFBFBFBF),
+    colorDark: Color = Color(0xFF8F8F8F)
 ): Modifier = drawBehind {
     val cellPx = cellSize.toPx()
     if (cellPx <= 0f) return@drawBehind
@@ -92,6 +92,7 @@ fun GlassViewport(
                     ) {
                         Text(
                             text = infoLabel,
+//                            text = "hello\nThis is a placeholder",
                             color = Color.White,
                             fontSize = 11.sp
                         )

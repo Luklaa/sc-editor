@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,35 +37,53 @@ fun GlassTimelinePanel(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
         ) {
-
+        if(isPlaying) {
             Box(
                 modifier = Modifier
                     .size(60.dp, 35.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.08f))
+                    .background(Color(0xFFE0F2FE).copy(alpha = 0.75f))
+                    .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
                     .border(1.dp, Color.Black.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
                     .clickable(enabled = frameCount > 1) { onTogglePlaying() },
                 contentAlignment = Alignment.Center
-            ) {
-                Text(text = if (isPlaying) "Stop" else "Play", color = Color(0xFF1E293B), fontSize = 12.sp)
+                ) {
+                    Text(text = "Stop", color = Color(0xFF1E293B), fontSize = 12.sp)
+                }
             }
+            else {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp, 35.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.08f))
+                        .clickable(enabled = frameCount > 1) { onTogglePlaying() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "Play", color = Color(0xFF1E293B), fontSize = 12.sp)
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = "Frame: ${currentFrame + 1} / $frameCount",
+                color = Color(0xFF1E293B),
+                fontSize = 12.sp
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             Slider(
                 value = currentFrame.toFloat(),
                 onValueChange = { onFrameChange(it.toInt()) },
                 valueRange = 0f..lastFrameIndex.toFloat(),
-                steps = (lastFrameIndex - 1).coerceAtLeast(0),
+                steps = (frameCount - 2).coerceAtLeast(0),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(0xFFBAE6FD),          // сам кружок
+                    activeTrackColor = Color(0xFFE0F2FE),    // полоска слева от кружка
+                    inactiveTrackColor = Color(0xFFE0F2FE).copy(alpha = 0.2f) // справа
+                ),
                 modifier = Modifier.weight(1f)
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Text(
-                text = "Кадр: ${currentFrame + 1} / $frameCount",
-                color = Color(0xFF1E293B),
-                fontSize = 12.sp
             )
         }
     }

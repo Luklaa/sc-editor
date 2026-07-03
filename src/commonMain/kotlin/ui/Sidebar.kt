@@ -118,8 +118,8 @@ fun GlassSidebar(
     var activeBottomTab by remember { mutableStateOf("Objects") }
     var searchQuery by remember { mutableStateOf("") }
 
-    var sortColumn by remember { mutableStateOf("Id") }
-    var sortAscending by remember { mutableStateOf(true) }
+    var sortColumn by remember { mutableStateOf("Name") }
+    var sortAscending by remember { mutableStateOf(false) }
 
     val columnWidths = remember { mutableStateListOf(1.2f, 2.4f, 1.3f) }
     var activeSearchColumn by remember { mutableStateOf<String?>(null) }

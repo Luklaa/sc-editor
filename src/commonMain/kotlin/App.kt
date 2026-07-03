@@ -289,6 +289,12 @@ fun App(
                         }
                     }
 
+                    val defaultObjectIndex = objectsList
+                        .withIndex()
+                        .filter { it.value.name.isNotBlank() }
+                        .minByOrNull { it.value.name }
+                        ?.index ?: -1
+
                     openedTabs.add(
                         OpenedTab(
                             name = fileName,
@@ -296,7 +302,7 @@ fun App(
                             containerVersion = containerVersion,
                             textures = texturesList,
                             objects = objectsList,
-                            activeObjectIndex = -1,
+                            activeObjectIndex = defaultObjectIndex,
                             activeTextureIndex = 0,
                             statusText = statusText,
                             matrixBanks = matrixBanksList,
@@ -416,10 +422,10 @@ fun App(
                             GlassViewport(
                                 loadedImage = if (showTextureCanvas) currentTexture?.bitmap else null,
                                 infoLabel = when {
-                                    isShapeSelected -> "Shape ${selectedObj?.id} · команд: ${selectedObj?.shapeCommands?.size}"
+                                    isShapeSelected -> "Shape ${selectedObj?.id} · Objects: ${selectedObj?.shapeCommands?.size}"
                                     isMovieClipSelected -> {
                                         val nameSuffix = if (!selectedObj?.name.isNullOrEmpty()) " · ${selectedObj?.name}" else ""
-                                        "MovieClip ${selectedObj?.id}$nameSuffix · ${selectedObj?.fps} fps · кадр ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
+                                        "MovieClip ${selectedObj?.id}$nameSuffix · ${selectedObj?.fps} fps · frame ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
                                     }
                                     currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
                                     else -> null

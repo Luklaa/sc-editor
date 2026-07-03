@@ -44,7 +44,7 @@ class MovieClipController(
 ) {
     var currentFrame by mutableStateOf(0)
         private set
-    var isPlaying by mutableStateOf(false)
+    var isPlaying by mutableStateOf(true)
 
     val timeSeconds: Float
         get() = if (fps > 0) currentFrame / fps.toFloat() else 0f

@@ -128,8 +128,8 @@ data class OpenedTab(
     val containerVersion: Int,
     val textures: List<ScTextureItem>,
     val objects: List<ScObjectItem>,
-    val activeObjectIndex: Int = -1,    // Индекс выбранного объекта (-1 = ничего)
-    val activeTextureIndex: Int = 0,     // Индекс выбранной текстуры
+    val activeObjectIndex: Int = 1,    // Индекс выбранного объекта (-1 = ничего)
+    val activeTextureIndex: Int = -1,     // Индекс выбранной текстуры
     val statusText: String,
     val matrixBanks: List<ScMatrixBankItem> = emptyList(),
     // Маркеры маскинга (см. ScMovieClipModifierType выше) — отдельно от objects, потому
