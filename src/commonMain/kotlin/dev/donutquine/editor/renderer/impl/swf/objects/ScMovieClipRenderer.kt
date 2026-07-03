@@ -1,6 +1,7 @@
 package dev.donutquine.editor.renderer.impl.swf.objects
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -8,9 +9,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay
 import ui.ScBlendMode
 import ui.ScColorTransformItem
@@ -145,6 +153,11 @@ private class MovieClipDrawCall(
 // maskGroupId — id маски (см. MovieClipMaskRenderer.kt), которая СЕЙЧАС в силе для этого
 // узла (унаследован от родителя; см. обработку MASK_BEGIN/MASKED_BEGIN/MASK_END в ветке
 // "MovieClip" ниже — она может сменить его для СВОИХ children).
+//
+// overrides — ручные правки позиции/масштаба (гизмо, см. MovieClipGizmoEditor.kt), ключ —
+// индекс элемента в frame.elements. Применяются ТОЛЬКО на depth == 0, т.е. только к прямым
+// children КОРНЕВОГО мувиклипа — редактировать вложенные (глубже одного уровня) объекты
+// пока нельзя, см. комментарий у ScMovieClipView.
 private fun collectDrawCalls(
     objectId: Int,
     matrix: ScMatrixItem,
@@ -153,6 +166,7 @@ private fun collectDrawCalls(
     colorTransform: ScColorTransformItem,
     blendMode: ScBlendMode,
     maskGroupId: Int?,
+    overrides: Map<Int, GizmoOverride>,
     objectsById: Map<Int, ScObjectItem>,
     matrixBanks: List<ScMatrixBankItem>,
     modifiersById: Map<Int, ScMovieClipModifierType>,
@@ -240,7 +254,7 @@ private fun collectDrawCalls(
             var currentMaskGroupId = maskGroupId
             var collectingMask = false
 
-            for (element in frame.elements) {
+            for ((elementIndex, element) in frame.elements.withIndex()) {
                 val child = obj.mcChildren.getOrNull(element.childIndex) ?: continue
                 // См. оригинал (MovieClip.createMovieClip):
                 // displayObject.setVisibleRecursive((blend & 64) == 0) — бит 64 в blend
@@ -269,7 +283,14 @@ private fun collectDrawCalls(
                     continue
                 }
 
-                val childMatrix = bank?.matrices?.getOrNull(element.matrixIndex) ?: IDENTITY_MATRIX
+                val rawChildMatrix = bank?.matrices?.getOrNull(element.matrixIndex) ?: IDENTITY_MATRIX
+                // Override двигает/масштабирует только ПРЯМЫХ children корневого мувиклипа —
+                // см. комментарий у параметра overrides в сигнатуре функции.
+                val childMatrix = if (depth == 0) {
+                    overrides[elementIndex]?.let { rawChildMatrix.withGizmoOverride(it) } ?: rawChildMatrix
+                } else {
+                    rawChildMatrix
+                }
                 val childFullMatrix = composeMatrix(matrix, childMatrix)
 
                 if (collectingMask) {
@@ -311,6 +332,7 @@ private fun collectDrawCalls(
                     colorTransform = childColorTransform,
                     blendMode = childBlendMode,
                     maskGroupId = currentMaskGroupId,
+                    overrides = overrides,
                     objectsById = objectsById,
                     matrixBanks = matrixBanks,
                     modifiersById = modifiersById,
@@ -330,6 +352,81 @@ private fun collectDrawCalls(
     }
 }
 
+// Считает fit (масштаб + сдвиг для вписывания в канву) ВСЕГДА по геометрии без учёта
+// gizmo-overrides (overrides = emptyMap() в пробном проходе) — иначе перетаскивание/ресайз
+// объекта на каждом кадре драга сдвигало/масштабировало бы саму канву под курсором, что
+// ощущалось бы как "убегающий" объект. canvasWidth/canvasHeight — размер канвы в пикселях
+// (DrawScope.size внутри Canvas{}, либо PointerInputScope.size снаружи — оба в px).
+private fun computeFitTransform(
+    movieClip: ScObjectItem,
+    objectsById: Map<Int, ScObjectItem>,
+    matrixBanks: List<ScMatrixBankItem>,
+    modifiersById: Map<Int, ScMovieClipModifierType>,
+    textures: List<ScTextureItem>,
+    useStrip: Boolean,
+    timeSeconds: Float,
+    canvasWidth: Float,
+    canvasHeight: Float
+): FitTransform? {
+    val probe = mutableListOf<MovieClipDrawCall>()
+    collectDrawCalls(
+        objectId = movieClip.id,
+        matrix = IDENTITY_MATRIX,
+        ownMatrix = IDENTITY_MATRIX,
+        scalingGrid = null,
+        colorTransform = ScColorTransformItem(),
+        blendMode = ScBlendMode.NORMAL,
+        maskGroupId = null,
+        overrides = emptyMap(),
+        objectsById = objectsById,
+        matrixBanks = matrixBanks,
+        modifiersById = modifiersById,
+        maskGeometryById = mutableMapOf(),
+        maskIdAllocator = MaskIdAllocator(),
+        textures = textures,
+        useStrip = useStrip,
+        timeSeconds = timeSeconds,
+        depth = 0,
+        output = probe
+    )
+    if (probe.isEmpty()) return null
+
+    var minX = Float.MAX_VALUE
+    var minY = Float.MAX_VALUE
+    var maxX = -Float.MAX_VALUE
+    var maxY = -Float.MAX_VALUE
+    for (call in probe) {
+        var i = 0
+        while (i < call.positions.size) {
+            val px = call.positions[i]
+            val py = call.positions[i + 1]
+            if (px < minX) minX = px
+            if (px > maxX) maxX = px
+            if (py < minY) minY = py
+            if (py > maxY) maxY = py
+            i += 2
+        }
+    }
+    if (minX > maxX || minY > maxY) return null
+
+    val contentWidth = (maxX - minX).coerceAtLeast(1f)
+    val contentHeight = (maxY - minY).coerceAtLeast(1f)
+    val paddingPx = 24f
+    val availableWidth = canvasWidth - paddingPx * 2f
+    val availableHeight = canvasHeight - paddingPx * 2f
+    if (availableWidth <= 0f || availableHeight <= 0f) return null
+
+    val scale = minOf(availableWidth / contentWidth, availableHeight / contentHeight)
+    val offsetX = (canvasWidth - contentWidth * scale) / 2f - minX * scale
+    val offsetY = (canvasHeight - contentHeight * scale) / 2f - minY * scale
+    return FitTransform(scale, offsetX, offsetY)
+}
+
+private const val GIZMO_HANDLE_HIT_RADIUS_PX = 14f
+private const val GIZMO_BODY_HIT_TOLERANCE_PX = 4f
+private const val GIZMO_HANDLE_VISUAL_RADIUS_PX = 5f
+private val GIZMO_ACCENT_COLOR = Color(0xFF3B82F6)
+
 /**
  * Отрисовывает MovieClip целиком: рекурсивно проходит по frame elements текущего кадра
  * (и кадров вложенных мувиклипов — см. collectDrawCalls), собирает все Shape-меши со
@@ -341,6 +438,12 @@ private fun collectDrawCalls(
  * (collectDrawCalls) собирает видимые draw call'ы и ОТДЕЛЬНО геометрию масок
  * (maskGeometryById), Pass 2 группирует draw call'ы по maskGroupId и оборачивает
  * каждую группу в clipPath с соответствующим контуром.
+ *
+ * Гизмо (см. MovieClipGizmoEditor.kt): клик по любому ПРЯМОМУ ребёнку корневого мувиклипа
+ * на текущем кадре выделяет его (рамка + угловые хэндлы); драг тела двигает, драг угла —
+ * uniform-масштабирует. Правки живут только в этой сессии просмотра, в файл не пишутся.
+ * Редактировать объекты глубже одного уровня вложенности (внутри вложенных MovieClip) пока
+ * нельзя — см. overrides в collectDrawCalls.
  */
 @Composable
 fun ScMovieClipView(
@@ -353,7 +456,113 @@ fun ScMovieClipView(
     timeSeconds: Float,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier) {
+    // key(movieClip.id): при переключении на другой объект в списке выделение/правки должны
+    // сбрасываться, а не тащиться за собой на новый мувиклип.
+    val gizmoState = remember(movieClip.id) { GizmoState() }
+
+    // Текущий кадр КОРНЯ — та же формула, что и в collectDrawCalls для вложенных клипов,
+    // но тут нужна отдельно и снаружи Canvas{} (для хит-тестинга в pointerInput).
+    val rootFrameIndex = if (movieClip.mcFrames.size <= 1) 0
+    else (timeSeconds * movieClip.fps.coerceAtLeast(1)).toInt().mod(movieClip.mcFrames.size.coerceAtLeast(1))
+    val rootFrame = movieClip.mcFrames.getOrNull(rootFrameIndex)
+    val rootBank = matrixBanks.getOrNull(movieClip.matrixBankIndex)
+
+    Canvas(
+        modifier = modifier
+            .pointerHoverIcon(if (gizmoState.selectedElementIndex != null) PointerIcon.Hand else PointerIcon.Default)
+            // Ключ — только movieClip.id (НЕ timeSeconds/кадр): жест не должен прерываться
+            // каждый раз, когда таймлайн переходит на следующий кадр во время драга. Из-за
+            // этого хит-тестинг внутри может использовать чуть устаревший timeSeconds, если
+            // редактировать прямо во время Play — некритичное упрощение, гизмо рассчитан на
+            // редактирование на паузе.
+            .pointerInput(movieClip.id) {
+                var dragMode: GizmoDragMode? = null
+                var pointerScreen = Offset.Zero
+
+                detectDragGestures(
+                    onDragStart = { start ->
+                        pointerScreen = start
+                        val frame = rootFrame
+                        val fit = if (frame != null) {
+                            computeFitTransform(
+                                movieClip, objectsById, matrixBanks, modifiersById, textures,
+                                useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
+                            )
+                        } else {
+                            null
+                        }
+
+                        if (frame == null || fit == null) {
+                            dragMode = null
+                        } else {
+                            val elements = collectSelectableGizmoElements(
+                                movieClip, frame, rootBank, gizmoState.overrides,
+                                objectsById, matrixBanks, modifiersById, useStrip, timeSeconds
+                            )
+
+                            val selectedIndex = gizmoState.selectedElementIndex
+                            val selectedScreenBounds = elements.find { it.elementIndex == selectedIndex }
+                                ?.contentBounds?.toScreenBounds(fit)
+                            val corner = selectedScreenBounds?.let { hitTestCorner(it, start, GIZMO_HANDLE_HIT_RADIUS_PX) }
+
+                            if (selectedIndex != null && corner != null && selectedScreenBounds != null) {
+                                val center = Offset(
+                                    (selectedScreenBounds[0] + selectedScreenBounds[2]) / 2f,
+                                    (selectedScreenBounds[1] + selectedScreenBounds[3]) / 2f
+                                )
+                                val startDistance = (start - center).getDistance().coerceAtLeast(1f)
+                                val baseScale = gizmoState.overrides[selectedIndex]?.scale ?: 1f
+                                dragMode = GizmoDragMode.Resize(selectedIndex, baseScale, center, startDistance)
+                            } else {
+                                // Последний в списке = верхний по z-order (нарисован поверх остальных).
+                                val hit = elements.lastOrNull {
+                                    screenBoundsContains(it.contentBounds.toScreenBounds(fit), start, GIZMO_BODY_HIT_TOLERANCE_PX)
+                                }
+                                if (hit != null) {
+                                    gizmoState.selectedElementIndex = hit.elementIndex
+                                    dragMode = GizmoDragMode.Move(hit.elementIndex)
+                                } else {
+                                    gizmoState.selectedElementIndex = null
+                                    dragMode = null
+                                }
+                            }
+                        }
+                    },
+                    onDrag = { _, dragAmount ->
+                        pointerScreen += dragAmount
+                        val fit = computeFitTransform(
+                            movieClip, objectsById, matrixBanks, modifiersById, textures,
+                            useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
+                        )
+
+                        if (fit != null) {
+                            when (val mode = dragMode) {
+                                is GizmoDragMode.Move -> {
+                                    val current = gizmoState.overrides[mode.elementIndex] ?: GizmoOverride()
+                                    gizmoState.overrides = gizmoState.overrides + (
+                                            mode.elementIndex to current.copy(
+                                                dx = current.dx + dragAmount.x / fit.scale,
+                                                dy = current.dy + dragAmount.y / fit.scale
+                                            )
+                                            )
+                                }
+                                is GizmoDragMode.Resize -> {
+                                    val currentDistance = (pointerScreen - mode.centerScreen).getDistance().coerceAtLeast(1f)
+                                    val ratio = (currentDistance / mode.startDistance).coerceIn(0.05f, 25f)
+                                    val current = gizmoState.overrides[mode.elementIndex] ?: GizmoOverride()
+                                    gizmoState.overrides = gizmoState.overrides + (
+                                            mode.elementIndex to current.copy(scale = mode.baseScale * ratio)
+                                            )
+                                }
+                                null -> Unit
+                            }
+                        }
+                    },
+                    onDragEnd = { dragMode = null },
+                    onDragCancel = { dragMode = null }
+                )
+            }
+    ) {
         val drawCalls = mutableListOf<MovieClipDrawCall>()
         val maskGeometryById = mutableMapOf<Int, MutableList<FloatArray>>()
         val maskIdAllocator = MaskIdAllocator()
@@ -366,6 +575,7 @@ fun ScMovieClipView(
             colorTransform = ScColorTransformItem(),
             blendMode = ScBlendMode.NORMAL,
             maskGroupId = null,
+            overrides = gizmoState.overrides,
             objectsById = objectsById,
             matrixBanks = matrixBanks,
             modifiersById = modifiersById,
@@ -380,40 +590,15 @@ fun ScMovieClipView(
 
         if (drawCalls.isEmpty()) return@Canvas
 
-        // Bounding box считаем только по ВИДИМЫМ draw call'ам (маски в него не входят) —
-        // иначе гигантская "маска-заглушка", которая сама не видна, могла бы испортить
-        // авто-вписывание всего мувиклипа в канву.
-        var minX = Float.MAX_VALUE
-        var minY = Float.MAX_VALUE
-        var maxX = -Float.MAX_VALUE
-        var maxY = -Float.MAX_VALUE
-
-        for (call in drawCalls) {
-            var i = 0
-            while (i < call.positions.size) {
-                val px = call.positions[i]
-                val py = call.positions[i + 1]
-                if (px < minX) minX = px
-                if (px > maxX) maxX = px
-                if (py < minY) minY = py
-                if (py > maxY) maxY = py
-                i += 2
-            }
-        }
-
-        if (minX > maxX || minY > maxY) return@Canvas
-
-        val contentWidth = (maxX - minX).coerceAtLeast(1f)
-        val contentHeight = (maxY - minY).coerceAtLeast(1f)
-
-        val paddingPx = 24f
-        val availableWidth = size.width - paddingPx * 2f
-        val availableHeight = size.height - paddingPx * 2f
-        if (availableWidth <= 0f || availableHeight <= 0f) return@Canvas
-
-        val scale = minOf(availableWidth / contentWidth, availableHeight / contentHeight)
-        val offsetX = (size.width - contentWidth * scale) / 2f - minX * scale
-        val offsetY = (size.height - contentHeight * scale) / 2f - minY * scale
+        // Стабильный fit — БЕЗ учёта overrides (см. комментарий у computeFitTransform),
+        // иначе редактирование дёргало бы масштаб канвы на каждый кадр драга.
+        val fit = computeFitTransform(
+            movieClip, objectsById, matrixBanks, modifiersById, textures,
+            useStrip, timeSeconds, size.width, size.height
+        ) ?: return@Canvas
+        val scale = fit.scale
+        val offsetX = fit.offsetX
+        val offsetY = fit.offsetY
 
         // ВАЖНО: это extension-лямбда (DrawScope.(...) -> Unit), а не обычная локальная
         // функция — обычная функция захватила бы ВНЕШНИЙ (необрезанный) DrawScope из
@@ -458,6 +643,50 @@ fun ScMovieClipView(
 
             clipPath(path) {
                 for (call in calls) drawCall(call)
+            }
+        }
+
+        // Pass 3: рамка выделения + угловые хэндлы для выбранного гизмо-элемента (см.
+        // MovieClipGizmoEditor.kt). Считаем bounds ЖИВЬЁМ (с текущим override), чтобы рамка
+        // двигалась/масштабировалась синхронно с объектом во время драга.
+        val selectedIndex = gizmoState.selectedElementIndex
+        if (selectedIndex != null && rootFrame != null) {
+            val element = rootFrame.elements.getOrNull(selectedIndex)
+            val child = element?.let { movieClip.mcChildren.getOrNull(it.childIndex) }
+            if (element != null && child != null) {
+                val rawMatrix = rootBank?.matrices?.getOrNull(element.matrixIndex) ?: IDENTITY_MATRIX
+                val override = gizmoState.overrides[selectedIndex] ?: GizmoOverride()
+                val liveMatrix = rawMatrix.withGizmoOverride(override)
+                val bounds = computeChildContentBounds(
+                    child.id, liveMatrix, objectsById, matrixBanks, modifiersById, useStrip, timeSeconds
+                )
+                if (bounds != null) {
+                    val screenBounds = bounds.toScreenBounds(fit)
+                    drawRect(
+                        color = GIZMO_ACCENT_COLOR,
+                        topLeft = Offset(screenBounds[0], screenBounds[1]),
+                        size = Size(
+                            (screenBounds[2] - screenBounds[0]).coerceAtLeast(0f),
+                            (screenBounds[3] - screenBounds[1]).coerceAtLeast(0f)
+                        ),
+                        style = Stroke(width = 2f)
+                    )
+                    val corners = listOf(
+                        Offset(screenBounds[0], screenBounds[1]),
+                        Offset(screenBounds[2], screenBounds[1]),
+                        Offset(screenBounds[0], screenBounds[3]),
+                        Offset(screenBounds[2], screenBounds[3])
+                    )
+                    for (corner in corners) {
+                        drawCircle(color = Color.White, radius = GIZMO_HANDLE_VISUAL_RADIUS_PX, center = corner)
+                        drawCircle(
+                            color = GIZMO_ACCENT_COLOR,
+                            radius = GIZMO_HANDLE_VISUAL_RADIUS_PX,
+                            center = corner,
+                            style = Stroke(width = 2f)
+                        )
+                    }
+                }
             }
         }
     }

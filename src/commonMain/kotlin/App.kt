@@ -1,7 +1,5 @@
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -10,8 +8,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import dev.donutquine.editor.assets.SupercellTextureAssetFileLoader
@@ -19,9 +15,7 @@ import dev.donutquine.editor.assets.SupercellSWFAssetFileLoader
 import dev.donutquine.utilities.ImageUtils
 import dev.donutquine.utilities.rgbaBytesToArgbInts
 import team.nulls.ntengine.assets.KhronosTextureDataLoader
-import java.awt.Cursor
 import ui.GlassSidebar
-import ui.GlassBox
 import ui.GlassViewport
 import ui.GlassTimelinePanel
 import ui.OpenedTab
@@ -381,46 +375,13 @@ fun App(
                                 onTextureSelected = { texIndex ->
                                     openedTabs[activeTabIndex] = activeTab.copy(activeTextureIndex = texIndex, viewMode = "TEXTURE")
                                 },
+                                onResizeDrag = { deltaDp ->
+                                    sidebarWidth = (sidebarWidth + deltaDp).coerceIn(220.dp, sidebarMaxWidth)
+                                },
                                 modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                             )
 
-                            // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2] — гармоничное
-                            // продолжение сайдбара: тот же GlassBox, но чуть темнее (alpha выше),
-                            // скругление зеркальное (слева прямые углы, справа как у сайдбара).
-                            GlassBox(
-                                modifier = Modifier
-                                    .width(8.dp)
-                                    .fillMaxHeight()
-                                    .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)))
-                                    .pointerInput(Unit) {
-                                        detectDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            sidebarWidth = (sidebarWidth + dragAmount.x.toDp()).coerceIn(220.dp, sidebarMaxWidth)
-                                        }
-                                    },
-                                alpha = 0.6f,
-                                topStart = 0.dp,
-                                bottomStart = 0.dp,
-                                topEnd = 6.dp,
-                                bottomEnd = 6.dp,
-                                contentPadding = 0.dp
-                            ) {
-                                Column(
-                                    modifier = Modifier.align(Alignment.Center),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    repeat(3) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(2.dp)
-                                                .background(Color.Black.copy(alpha = 1f), CircleShape)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Небольшой зазор между хендлом и вьюпортом
+                            // Небольшой зазор между сайдбаром и вьюпортом
                             Spacer(modifier = Modifier.width(6.dp))
                         }
 
