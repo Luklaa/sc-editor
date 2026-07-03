@@ -22,9 +22,10 @@ data class ScMatrixItem(
     val y: Float = 0f
 )
 
-// ColorTransform ребёнка мувиклипа (см. dev.donutquine.swf.ColorTransform).
-// Мультипликаторы/добавки RGB пока не применяются при рендере (см. TODO в
-// ScMovieClipRenderer.kt), используется только alpha.
+// ColorTransform ребёнка мувиклипа (см. dev.donutquine.swf.ColorTransform). Применяется
+// целиком (RGB множители/добавки + alpha) — см. tintColorMatrix() в ScShapeRenderer.kt
+// и composeColorTransform() в ScMovieClipRenderer.kt (композиция как в оригинальном
+// ColorTransform.multiply()).
 data class ScColorTransformItem(
     val redMultiplier: Int = 255,
     val greenMultiplier: Int = 255,
@@ -34,6 +35,23 @@ data class ScColorTransformItem(
     val greenAddition: Int = 0,
     val blueAddition: Int = 0
 )
+
+// Режим смешивания ребёнка мувиклипа — см. dev.donutquine.swf.movieclips.MovieClipChild.blend
+// (нижние 6 бит, blend and 63) и оригинальный BLEND_MODE_MAP в
+// old_cdoe/.../renderer/impl/swf/objects/MovieClip.java. Именно это отвечает за эффекты
+// типа "свечение" (обычно ADDITIVE или SCREEN поверх обычного контента) — раньше всё
+// рисовалось только как NORMAL, поэтому такие эффекты выглядели плоско/неправильно.
+enum class ScBlendMode { NORMAL, MULTIPLY, SCREEN, ADDITIVE }
+
+fun blendCodeToScBlendMode(blendCode: Int): ScBlendMode = when (blendCode and 63) {
+    3 -> ScBlendMode.MULTIPLY
+    4 -> ScBlendMode.SCREEN
+    8 -> ScBlendMode.ADDITIVE
+    // 12 и 15 в оригинале — PREMULTIPLIED_ALPHA, те же GL-факторы (ONE, ONE_MINUS_SRC_ALPHA),
+    // что и у NORMAL — разница только в предумноженности исходных пикселей, которую мы
+    // отдельно не отслеживаем, так что трактуем как обычный NORMAL blend.
+    else -> ScBlendMode.NORMAL
+}
 
 data class ScMatrixBankItem(
     val matrices: List<ScMatrixItem> = emptyList(),

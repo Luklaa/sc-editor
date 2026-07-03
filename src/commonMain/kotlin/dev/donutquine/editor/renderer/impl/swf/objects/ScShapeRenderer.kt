@@ -6,6 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import dev.donutquine.swf.shapes.ShapeDrawBitmapCommand
+import ui.ScBlendMode
+import ui.ScColorTransformItem
 import ui.ScTextureItem
 
 expect fun DrawScope.drawTexturedMesh(
@@ -13,7 +15,8 @@ expect fun DrawScope.drawTexturedMesh(
     positions: FloatArray,
     texCoords: FloatArray,
     indices: ShortArray,
-    alpha: Float = 1f
+    colorTransform: ScColorTransformItem = ScColorTransformItem(),
+    blendMode: ScBlendMode = ScBlendMode.NORMAL
 )
 
 @Composable

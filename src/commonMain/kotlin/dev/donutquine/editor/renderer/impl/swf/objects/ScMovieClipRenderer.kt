@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import kotlinx.coroutines.delay
+import ui.ScBlendMode
 import ui.ScColorTransformItem
 import ui.ScMatrixBankItem
 import ui.ScMatrixItem
@@ -19,6 +20,7 @@ import ui.ScMovieClipModifierType
 import ui.ScObjectItem
 import ui.ScRectItem
 import ui.ScTextureItem
+import ui.blendCodeToScBlendMode
 
 /**
  * Состояние проигрывателя мувиклипа (кадр + play/stop), которым управляет
@@ -90,6 +92,23 @@ internal fun composeMatrix(parent: ScMatrixItem, child: ScMatrixItem): ScMatrixI
 internal fun ScMatrixItem.applyX(px: Float, py: Float) = px * a + py * c + x
 internal fun ScMatrixItem.applyY(px: Float, py: Float) = py * d + px * b + y
 
+// Композиция ColorTransform родителя и ребёнка — порт dev.donutquine.swf.ColorTransform.multiply():
+// множители перемножаются (с нормировкой на 255, т.к. хранятся как 0..255, а не 0..1),
+// добавки складываются, всё клампится в 0..255.
+internal fun composeColorTransform(parent: ScColorTransformItem, child: ScColorTransformItem): ScColorTransformItem {
+    fun mul(a: Int, b: Int) = (a * b / 255f).toInt().coerceIn(0, 255)
+    fun add(a: Int, b: Int) = (a + b).coerceIn(0, 255)
+    return ScColorTransformItem(
+        redMultiplier = mul(parent.redMultiplier, child.redMultiplier),
+        greenMultiplier = mul(parent.greenMultiplier, child.greenMultiplier),
+        blueMultiplier = mul(parent.blueMultiplier, child.blueMultiplier),
+        alpha = mul(parent.alpha, child.alpha),
+        redAddition = add(parent.redAddition, child.redAddition),
+        greenAddition = add(parent.greenAddition, child.greenAddition),
+        blueAddition = add(parent.blueAddition, child.blueAddition)
+    )
+}
+
 // Простой счётчик id масок, общий на весь вызов ScMovieClipView (см. Pass 1 ниже).
 private class MaskIdAllocator {
     private var next = 0
@@ -105,14 +124,16 @@ private class MovieClipDrawCall(
     val positions: FloatArray,
     val texCoords: FloatArray,
     val indices: ShortArray,
-    val alpha: Float,
+    val colorTransform: ScColorTransformItem,
+    val blendMode: ScBlendMode,
     val maskGroupId: Int?
 )
 
 // Рекурсивно обходит дерево MovieClip -> children -> (Shape | MovieClip | TextField),
-// на каждом уровне накапливая аффинную трансформацию и alpha, и на листьях (Shape)
-// генерирует draw call'ы с уже применённой трансформацией к вершинам.
-// depth — защита от случайной цикличности ссылок (a содержит b, который содержит a).
+// на каждом уровне накапливая аффинную трансформацию и ColorTransform (RGB-тонирование +
+// alpha), и на листьях (Shape) генерирует draw call'ы с уже применённой трансформацией
+// к вершинам. depth — защита от случайной цикличности ссылок (a содержит b, который
+// содержит a).
 //
 // scalingGrid/ownMatrix — контекст 9-slice, унаследованный от РОДИТЕЛЬСКОГО MovieClip:
 // см. оригинал MovieClip.createMovieClip -> DisplayObjectFactory.createFromOriginal(...,
@@ -129,7 +150,8 @@ private fun collectDrawCalls(
     matrix: ScMatrixItem,
     ownMatrix: ScMatrixItem,
     scalingGrid: ScRectItem?,
-    alpha: Float,
+    colorTransform: ScColorTransformItem,
+    blendMode: ScBlendMode,
     maskGroupId: Int?,
     objectsById: Map<Int, ScObjectItem>,
     matrixBanks: List<ScMatrixBankItem>,
@@ -142,7 +164,7 @@ private fun collectDrawCalls(
     depth: Int,
     output: MutableList<MovieClipDrawCall>
 ) {
-    if (depth > 16 || alpha <= 0f) return
+    if (depth > 16 || colorTransform.alpha <= 0) return
     val obj = objectsById[objectId] ?: return
 
     when (obj.type) {
@@ -193,7 +215,7 @@ private fun collectDrawCalls(
                     }
                 }
 
-                output.add(MovieClipDrawCall(textureItem, positions, texCoords, indices, alpha, maskGroupId))
+                output.add(MovieClipDrawCall(textureItem, positions, texCoords, indices, colorTransform, blendMode, maskGroupId))
             }
         }
 
@@ -204,7 +226,7 @@ private fun collectDrawCalls(
             // на собственном fps/frames.size).
             val fps = obj.fps.coerceAtLeast(1)
             val frameIndex = if (obj.mcFrames.size <= 1) 0
-                else (timeSeconds * fps).toInt().mod(obj.mcFrames.size)
+            else (timeSeconds * fps).toInt().mod(obj.mcFrames.size)
             val frame = obj.mcFrames[frameIndex]
             val bank = matrixBanks.getOrNull(obj.matrixBankIndex)
 
@@ -268,8 +290,16 @@ private fun collectDrawCalls(
                     continue
                 }
 
-                val childColor: ScColorTransformItem? = bank?.colorTransforms?.getOrNull(element.colorTransformIndex)
-                val childAlpha = alpha * ((childColor?.alpha ?: 255) / 255f)
+                val childColor: ScColorTransformItem = bank?.colorTransforms?.getOrNull(element.colorTransformIndex)
+                    ?: ScColorTransformItem()
+                val childColorTransform = composeColorTransform(colorTransform, childColor)
+                // Блендинг НЕ наследуется/накапливается — как и в оригинале
+                // (displayObject.setBlendMode(...) вызывается для каждого ребёнка от его
+                // СОБСТВЕННОГО blend-байта в родительском mcChildren, см. blendCodeToScBlendMode).
+                // Если child сам MovieClip, при обходе ЕГО children ниже blendMode для
+                // грандчилдов посчитается заново из их собственных blend — этот параметр
+                // "доживёт" только до ближайшего листа Shape.
+                val childBlendMode = blendCodeToScBlendMode(child.blend)
 
                 collectDrawCalls(
                     objectId = child.id,
@@ -278,7 +308,8 @@ private fun collectDrawCalls(
                     // 9-slice сетка ЭТОГО мувиклипа (obj) действует на его прямых детей —
                     // см. комментарий над функцией.
                     scalingGrid = obj.scalingGrid,
-                    alpha = childAlpha,
+                    colorTransform = childColorTransform,
+                    blendMode = childBlendMode,
                     maskGroupId = currentMaskGroupId,
                     objectsById = objectsById,
                     matrixBanks = matrixBanks,
@@ -332,7 +363,8 @@ fun ScMovieClipView(
             matrix = IDENTITY_MATRIX,
             ownMatrix = IDENTITY_MATRIX,
             scalingGrid = null,
-            alpha = 1f,
+            colorTransform = ScColorTransformItem(),
+            blendMode = ScBlendMode.NORMAL,
             maskGroupId = null,
             objectsById = objectsById,
             matrixBanks = matrixBanks,
@@ -397,7 +429,7 @@ fun ScMovieClipView(
                     scaledPositions[i] = call.positions[i] * scale + offsetX
                     scaledPositions[i + 1] = call.positions[i + 1] * scale + offsetY
                 }
-                drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices, call.alpha)
+                drawTexturedMesh(bitmap, scaledPositions, call.texCoords, call.indices, call.colorTransform, call.blendMode)
             }
         }
 

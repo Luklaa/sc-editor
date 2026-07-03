@@ -91,6 +91,7 @@ fun convert8BitToArgb(width: Int, height: Int, bytes: ByteArray): IntArray {
     return pixels
 }
 
+// Декодер текстур SWF/SCTX в ImageBitmap для вьюпорта
 fun decodeTextureToBitmap(width: Int, height: Int, rawBuffer: Any?, ktxData: ByteArray?, pixelTypeStr: String): ImageBitmap? {
     if (rawBuffer != null) {
         val argbPixels = bufferToIntArray(rawBuffer, width, height)
