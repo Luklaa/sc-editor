@@ -1,7 +1,6 @@
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -22,6 +21,7 @@ import dev.donutquine.utilities.rgbaBytesToArgbInts
 import team.nulls.ntengine.assets.KhronosTextureDataLoader
 import java.awt.Cursor
 import ui.GlassSidebar
+import ui.GlassBox
 import ui.GlassViewport
 import ui.GlassTimelinePanel
 import ui.OpenedTab
@@ -384,8 +384,10 @@ fun App(
                                 modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                             )
 
-                            // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2]
-                            Box(
+                            // Перетаскиваемый Сплиттер (как JSplitPane) [1, 2] — гармоничное
+                            // продолжение сайдбара: тот же GlassBox, но чуть темнее (alpha выше),
+                            // скругление зеркальное (слева прямые углы, справа как у сайдбара).
+                            GlassBox(
                                 modifier = Modifier
                                     .width(8.dp)
                                     .fillMaxHeight()
@@ -396,12 +398,15 @@ fun App(
                                             sidebarWidth = (sidebarWidth + dragAmount.x.toDp()).coerceIn(220.dp, sidebarMaxWidth)
                                         }
                                     },
-                                contentAlignment = Alignment.Center
+                                alpha = 0.6f,
+                                topStart = 0.dp,
+                                bottomStart = 0.dp,
+                                topEnd = 6.dp,
+                                bottomEnd = 6.dp,
+                                contentPadding = 0.dp
                             ) {
                                 Column(
-                                    modifier = Modifier
-                                        .background(Color.Black.copy(alpha = 0.06f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 3.dp, vertical = 4.dp),
+                                    modifier = Modifier.align(Alignment.Center),
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -414,6 +419,9 @@ fun App(
                                     }
                                 }
                             }
+
+                            // Небольшой зазор между хендлом и вьюпортом
+                            Spacer(modifier = Modifier.width(6.dp))
                         }
 
                         // Центральный вьюпорт + плеер (если выбран MovieClip)

@@ -172,7 +172,14 @@ fun GlassSidebar(
         }
     }
 
-    GlassBox(modifier = modifier, alpha = 0.45f, cornerRadius = 16, contentPadding = 8.dp) {
+    GlassBox(
+        modifier = modifier,
+        alpha = 0.45f,
+        cornerRadius = 16,
+        topEnd = 0.dp,
+        bottomEnd = 0.dp,
+        contentPadding = 8.dp
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -346,13 +353,13 @@ fun GlassSidebar(
                                                 if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
                                                 RoundedCornerShape(8.dp)
                                             )
-                                            .padding(vertical = 6.dp, horizontal = 6.dp)
+                                            .padding(vertical = 1.dp, horizontal = 6.dp)
                                     ) {
                                         Box(
                                             modifier = Modifier.weight(columnWidths[0])
                                                 .clip(RoundedCornerShape(6.dp))
                                                 .clickable { onObjectSelected(row.objectIndex) }
-                                                .padding(vertical = 3.dp, horizontal = 2.dp),
+                                                .padding(vertical = 1.dp, horizontal = 2.dp),
                                             contentAlignment = Alignment.CenterStart
                                         ) {
                                             Text(
@@ -367,7 +374,7 @@ fun GlassSidebar(
                                             modifier = Modifier.weight(columnWidths[1])
                                                 .clip(RoundedCornerShape(6.dp))
                                                 .clickable { onObjectSelected(row.objectIndex) }
-                                                .padding(vertical = 3.dp, horizontal = 2.dp),
+                                                .padding(vertical = 1.dp, horizontal = 2.dp),
                                             contentAlignment = Alignment.CenterStart
                                         ) {
                                             Text(
@@ -382,7 +389,7 @@ fun GlassSidebar(
                                             modifier = Modifier.weight(columnWidths[2])
                                                 .clip(RoundedCornerShape(6.dp))
                                                 .clickable { onObjectSelected(row.objectIndex) }
-                                                .padding(vertical = 3.dp, horizontal = 2.dp),
+                                                .padding(vertical = 1.dp, horizontal = 2.dp),
                                             contentAlignment = Alignment.CenterStart
                                         ) {
                                             Text(
@@ -413,7 +420,7 @@ fun GlassSidebar(
                                                 RoundedCornerShape(8.dp)
                                             )
                                             .clickable { onTextureSelected(row.textureIndex) }
-                                            .padding(vertical = 6.dp, horizontal = 8.dp)
+                                            .padding(vertical = 1.dp, horizontal = 8.dp)
                                     ) {
                                         Text(
                                             "Texture ${tex.index} · ${tex.width}x${tex.height} · ${tex.format}",
@@ -457,7 +464,7 @@ fun GlassSidebar(
                                             RoundedCornerShape(8.dp)
                                         )
                                         .clickable { onTextureSelected(tex.index) }
-                                        .padding(vertical = 6.dp, horizontal = 8.dp)
+                                        .padding(vertical = 1.dp, horizontal = 8.dp)
                                 ) {
                                     Text(
                                         "Texture ${tex.index} · ${tex.width}x${tex.height}",

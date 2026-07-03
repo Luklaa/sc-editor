@@ -53,7 +53,7 @@ android {
 
     defaultConfig {
         applicationId = "com.luklaaa.sceditor"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.6.2"
