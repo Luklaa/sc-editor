@@ -421,6 +421,7 @@ fun App(
 
                             GlassViewport(
                                 loadedImage = if (showTextureCanvas) currentTexture?.bitmap else null,
+                                cameraResetKey = Triple(activeTab?.path, viewMode, selectedObj?.id ?: currentTexture?.index),
                                 infoLabel = when {
                                     isShapeSelected -> "Shape ${selectedObj?.id} · Objects: ${selectedObj?.shapeCommands?.size}"
                                     isMovieClipSelected -> {
@@ -451,6 +452,9 @@ fun App(
                                                 textures = activeTab.textures,
                                                 useStrip = activeTab.containerVersion >= 5,
                                                 timeSeconds = mcController.timeSeconds,
+                                                // Гизмо (перетаскивание/ресайз children) не то, что
+                                                // просил пользователь — оставлен в коде, но выключен.
+                                                gizmoEnabled = false,
                                                 modifier = Modifier.fillMaxSize()
                                             )
                                         }

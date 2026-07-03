@@ -454,6 +454,11 @@ fun ScMovieClipView(
     textures: List<ScTextureItem>,
     useStrip: Boolean,
     timeSeconds: Float,
+    // Гизмо (перетаскивание/ресайз children мувиклипа, см. MovieClipGizmoEditor.kt) сейчас
+    // выключен по умолчанию — пользователь явно попросил не использовать его в текущем UX
+    // (это не то, что есть в оригинальном редакторе). Код НЕ удалён, просто гейтится этим
+    // флагом на случай, если понадобится вернуть/доработать позже.
+    gizmoEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // key(movieClip.id): при переключении на другой объект в списке выделение/правки должны
@@ -469,98 +474,101 @@ fun ScMovieClipView(
 
     Canvas(
         modifier = modifier
-            .pointerHoverIcon(if (gizmoState.selectedElementIndex != null) PointerIcon.Hand else PointerIcon.Default)
+            .pointerHoverIcon(if (gizmoEnabled && gizmoState.selectedElementIndex != null) PointerIcon.Hand else PointerIcon.Default)
             // Ключ — только movieClip.id (НЕ timeSeconds/кадр): жест не должен прерываться
             // каждый раз, когда таймлайн переходит на следующий кадр во время драга. Из-за
             // этого хит-тестинг внутри может использовать чуть устаревший timeSeconds, если
             // редактировать прямо во время Play — некритичное упрощение, гизмо рассчитан на
             // редактирование на паузе.
-            .pointerInput(movieClip.id) {
-                var dragMode: GizmoDragMode? = null
-                var pointerScreen = Offset.Zero
+            .let { base ->
+                if (!gizmoEnabled) return@let base
+                base.pointerInput(movieClip.id) {
+                    var dragMode: GizmoDragMode? = null
+                    var pointerScreen = Offset.Zero
 
-                detectDragGestures(
-                    onDragStart = { start ->
-                        pointerScreen = start
-                        val frame = rootFrame
-                        val fit = if (frame != null) {
-                            computeFitTransform(
+                    detectDragGestures(
+                        onDragStart = { start ->
+                            pointerScreen = start
+                            val frame = rootFrame
+                            val fit = if (frame != null) {
+                                computeFitTransform(
+                                    movieClip, objectsById, matrixBanks, modifiersById, textures,
+                                    useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
+                                )
+                            } else {
+                                null
+                            }
+
+                            if (frame == null || fit == null) {
+                                dragMode = null
+                            } else {
+                                val elements = collectSelectableGizmoElements(
+                                    movieClip, frame, rootBank, gizmoState.overrides,
+                                    objectsById, matrixBanks, modifiersById, useStrip, timeSeconds
+                                )
+
+                                val selectedIndex = gizmoState.selectedElementIndex
+                                val selectedScreenBounds = elements.find { it.elementIndex == selectedIndex }
+                                    ?.contentBounds?.toScreenBounds(fit)
+                                val corner = selectedScreenBounds?.let { hitTestCorner(it, start, GIZMO_HANDLE_HIT_RADIUS_PX) }
+
+                                if (selectedIndex != null && corner != null && selectedScreenBounds != null) {
+                                    val center = Offset(
+                                        (selectedScreenBounds[0] + selectedScreenBounds[2]) / 2f,
+                                        (selectedScreenBounds[1] + selectedScreenBounds[3]) / 2f
+                                    )
+                                    val startDistance = (start - center).getDistance().coerceAtLeast(1f)
+                                    val baseScale = gizmoState.overrides[selectedIndex]?.scale ?: 1f
+                                    dragMode = GizmoDragMode.Resize(selectedIndex, baseScale, center, startDistance)
+                                } else {
+                                    // Последний в списке = верхний по z-order (нарисован поверх остальных).
+                                    val hit = elements.lastOrNull {
+                                        screenBoundsContains(it.contentBounds.toScreenBounds(fit), start, GIZMO_BODY_HIT_TOLERANCE_PX)
+                                    }
+                                    if (hit != null) {
+                                        gizmoState.selectedElementIndex = hit.elementIndex
+                                        dragMode = GizmoDragMode.Move(hit.elementIndex)
+                                    } else {
+                                        gizmoState.selectedElementIndex = null
+                                        dragMode = null
+                                    }
+                                }
+                            }
+                        },
+                        onDrag = { _, dragAmount ->
+                            pointerScreen += dragAmount
+                            val fit = computeFitTransform(
                                 movieClip, objectsById, matrixBanks, modifiersById, textures,
                                 useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
                             )
-                        } else {
-                            null
-                        }
 
-                        if (frame == null || fit == null) {
-                            dragMode = null
-                        } else {
-                            val elements = collectSelectableGizmoElements(
-                                movieClip, frame, rootBank, gizmoState.overrides,
-                                objectsById, matrixBanks, modifiersById, useStrip, timeSeconds
-                            )
-
-                            val selectedIndex = gizmoState.selectedElementIndex
-                            val selectedScreenBounds = elements.find { it.elementIndex == selectedIndex }
-                                ?.contentBounds?.toScreenBounds(fit)
-                            val corner = selectedScreenBounds?.let { hitTestCorner(it, start, GIZMO_HANDLE_HIT_RADIUS_PX) }
-
-                            if (selectedIndex != null && corner != null && selectedScreenBounds != null) {
-                                val center = Offset(
-                                    (selectedScreenBounds[0] + selectedScreenBounds[2]) / 2f,
-                                    (selectedScreenBounds[1] + selectedScreenBounds[3]) / 2f
-                                )
-                                val startDistance = (start - center).getDistance().coerceAtLeast(1f)
-                                val baseScale = gizmoState.overrides[selectedIndex]?.scale ?: 1f
-                                dragMode = GizmoDragMode.Resize(selectedIndex, baseScale, center, startDistance)
-                            } else {
-                                // Последний в списке = верхний по z-order (нарисован поверх остальных).
-                                val hit = elements.lastOrNull {
-                                    screenBoundsContains(it.contentBounds.toScreenBounds(fit), start, GIZMO_BODY_HIT_TOLERANCE_PX)
-                                }
-                                if (hit != null) {
-                                    gizmoState.selectedElementIndex = hit.elementIndex
-                                    dragMode = GizmoDragMode.Move(hit.elementIndex)
-                                } else {
-                                    gizmoState.selectedElementIndex = null
-                                    dragMode = null
+                            if (fit != null) {
+                                when (val mode = dragMode) {
+                                    is GizmoDragMode.Move -> {
+                                        val current = gizmoState.overrides[mode.elementIndex] ?: GizmoOverride()
+                                        gizmoState.overrides = gizmoState.overrides + (
+                                                mode.elementIndex to current.copy(
+                                                    dx = current.dx + dragAmount.x / fit.scale,
+                                                    dy = current.dy + dragAmount.y / fit.scale
+                                                )
+                                                )
+                                    }
+                                    is GizmoDragMode.Resize -> {
+                                        val currentDistance = (pointerScreen - mode.centerScreen).getDistance().coerceAtLeast(1f)
+                                        val ratio = (currentDistance / mode.startDistance).coerceIn(0.05f, 25f)
+                                        val current = gizmoState.overrides[mode.elementIndex] ?: GizmoOverride()
+                                        gizmoState.overrides = gizmoState.overrides + (
+                                                mode.elementIndex to current.copy(scale = mode.baseScale * ratio)
+                                                )
+                                    }
+                                    null -> Unit
                                 }
                             }
-                        }
-                    },
-                    onDrag = { _, dragAmount ->
-                        pointerScreen += dragAmount
-                        val fit = computeFitTransform(
-                            movieClip, objectsById, matrixBanks, modifiersById, textures,
-                            useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
-                        )
-
-                        if (fit != null) {
-                            when (val mode = dragMode) {
-                                is GizmoDragMode.Move -> {
-                                    val current = gizmoState.overrides[mode.elementIndex] ?: GizmoOverride()
-                                    gizmoState.overrides = gizmoState.overrides + (
-                                            mode.elementIndex to current.copy(
-                                                dx = current.dx + dragAmount.x / fit.scale,
-                                                dy = current.dy + dragAmount.y / fit.scale
-                                            )
-                                            )
-                                }
-                                is GizmoDragMode.Resize -> {
-                                    val currentDistance = (pointerScreen - mode.centerScreen).getDistance().coerceAtLeast(1f)
-                                    val ratio = (currentDistance / mode.startDistance).coerceIn(0.05f, 25f)
-                                    val current = gizmoState.overrides[mode.elementIndex] ?: GizmoOverride()
-                                    gizmoState.overrides = gizmoState.overrides + (
-                                            mode.elementIndex to current.copy(scale = mode.baseScale * ratio)
-                                            )
-                                }
-                                null -> Unit
-                            }
-                        }
-                    },
-                    onDragEnd = { dragMode = null },
-                    onDragCancel = { dragMode = null }
-                )
+                        },
+                        onDragEnd = { dragMode = null },
+                        onDragCancel = { dragMode = null }
+                    )
+                }
             }
     ) {
         val drawCalls = mutableListOf<MovieClipDrawCall>()
@@ -575,7 +583,7 @@ fun ScMovieClipView(
             colorTransform = ScColorTransformItem(),
             blendMode = ScBlendMode.NORMAL,
             maskGroupId = null,
-            overrides = gizmoState.overrides,
+            overrides = if (gizmoEnabled) gizmoState.overrides else emptyMap(),
             objectsById = objectsById,
             matrixBanks = matrixBanks,
             modifiersById = modifiersById,
@@ -649,7 +657,8 @@ fun ScMovieClipView(
         // Pass 3: рамка выделения + угловые хэндлы для выбранного гизмо-элемента (см.
         // MovieClipGizmoEditor.kt). Считаем bounds ЖИВЬЁМ (с текущим override), чтобы рамка
         // двигалась/масштабировалась синхронно с объектом во время драга.
-        val selectedIndex = gizmoState.selectedElementIndex
+        // Выключено по умолчанию — см. gizmoEnabled в сигнатуре функции.
+        val selectedIndex = if (gizmoEnabled) gizmoState.selectedElementIndex else null
         if (selectedIndex != null && rootFrame != null) {
             val element = rootFrame.elements.getOrNull(selectedIndex)
             val child = element?.let { movieClip.mcChildren.getOrNull(it.childIndex) }
