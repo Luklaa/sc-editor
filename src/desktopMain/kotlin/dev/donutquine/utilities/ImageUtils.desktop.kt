@@ -46,11 +46,31 @@ actual object ImageUtils {
 
     actual fun createBitmap(width: Int, height: Int, pixelArray: IntArray, isLuminanceAlpha: Boolean): ImageBitmap {
         val colorModel = if (isLuminanceAlpha) LUMINANCE_ALPHA_MODEL else RGBA_MODEL
+        val preparedPixels = if (isLuminanceAlpha) pixelArray else premultiplyAlpha(pixelArray)
         val sampleModel = colorModel.createCompatibleSampleModel(width, height)
-        val dataBufferInt = DataBufferInt(pixelArray, pixelArray.size)
+        val dataBufferInt = DataBufferInt(preparedPixels, preparedPixels.size)
         val writableRaster = Raster.createWritableRaster(sampleModel, dataBufferInt, null)
-        val bufferedImage = BufferedImage(colorModel, writableRaster, false, null)
+        val bufferedImage = BufferedImage(colorModel, writableRaster, !isLuminanceAlpha, null)
         return bufferedImage.toComposeImageBitmap()
+    }
+
+    private fun premultiplyAlpha(pixels: IntArray): IntArray {
+        val result = IntArray(pixels.size)
+        for (i in pixels.indices) {
+            val p = pixels[i]
+            val a = (p ushr 24) and 0xFF
+            when (a) {
+                0xFF -> result[i] = p
+                0 -> result[i] = 0
+                else -> {
+                    val r = (p ushr 16) and 0xFF
+                    val g = (p ushr 8) and 0xFF
+                    val b = p and 0xFF
+                    result[i] = (a shl 24) or ((r * a / 255) shl 16) or ((g * a / 255) shl 8) or (b * a / 255)
+                }
+            }
+        }
+        return result
     }
     actual fun decompressKtx(ktx: KhronosTexture): ImageBitmap? {
         return try {

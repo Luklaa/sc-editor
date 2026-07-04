@@ -66,7 +66,7 @@ actual fun DrawScope.drawTexturedMesh(
             shader = skiaImage.makeShader(
                 FilterTileMode.CLAMP,
                 FilterTileMode.CLAMP,
-                FilterMipmap(FilterMode.NEAREST, MipmapMode.NONE)
+                FilterMipmap(FilterMode.LINEAR, MipmapMode.NONE)
             )
             // RGB-тонирование + alpha (ColorTransform целиком) через матрицу цвета поверх
             // текстуры, а не просто глобальная альфа — иначе объекты, перекрашенные через
