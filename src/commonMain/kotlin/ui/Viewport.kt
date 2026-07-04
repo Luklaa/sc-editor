@@ -57,13 +57,14 @@ fun Modifier.checkerboard(
 
     onDrawBehind {
         val tileSizeF = tileSize.toFloat()
-        val shiftX = offsetX.mod(tileSizeF) - tileSizeF
-        val shiftY = offsetY.mod(tileSizeF) - tileSizeF
+        val marginPx = tileSizeF * 4f
+        val shiftX = offsetX.mod(tileSizeF)
+        val shiftY = offsetY.mod(tileSizeF)
         translate(left = shiftX, top = shiftY) {
             drawRect(
                 brush = brush,
-                topLeft = Offset.Zero,
-                size = Size(size.width + tileSizeF * 3, size.height + tileSizeF * 3)
+                topLeft = Offset(-marginPx, -marginPx),
+                size = Size(size.width + marginPx * 2f, size.height + marginPx * 2f)
             )
         }
     }

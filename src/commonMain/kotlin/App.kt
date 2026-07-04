@@ -189,18 +189,22 @@ fun App(
                         }
                     } else if (path.endsWith(".sc", ignoreCase = true)) {
                         val swf = SupercellSWFAssetFileLoader.loadInternal(path)
+                        fun <T> safeList(block: () -> List<T>?): List<T> =
+                            try { block() ?: emptyList() } catch (e: NullPointerException) { emptyList() }
+
                         containerVersion = swf.containerVersion
-                        val tCount = swf.textures?.size ?: 0
-                        val sCount = swf.shapes?.size ?: 0
-                        val mcCount = swf.movieClips?.size ?: 0
-                        val exportsCount = swf.exports?.size ?: 0
-                        val tfCount = swf.textFields?.size ?: 0
+                        val tCount = safeList { swf.textures }.size
+                        val sCount = safeList { swf.shapes }.size
+                        val mcCount = safeList { swf.movieClips }.size
+                        val exportsCount = safeList { swf.exports }.size
+                        val tfCount = safeList { swf.textFields }.size
 
                         statusText = "Файл: $fileName\nВерсия контейнера: ${swf.containerVersion}\n" +
                                 "Текстур: $tCount | Экспортов: $exportsCount | Мувиклипов: $mcCount | Форм: $sCount | Текстовых полей: $tfCount"
 
+                        val texturesRaw = safeList { swf.textures }
                         for (i in 0 until tCount) {
-                            val tex = swf.textures[i]
+                            val tex = texturesRaw[i]
                             val rawBuffer = tex.getPixels()
                             val ktxData = tex.getKtxData()
                             val typeStr = tex.type?.toString() ?: "RGBA8"
@@ -214,7 +218,7 @@ fun App(
                         // SupercellSWF.loadSc1(): movieClip.setExportName(export.name())).
                         // Поэтому здесь мы НЕ создаём отдельные ScObjectItem с типом "Export" —
                         // это давало дублирующиеся строки с тем же id, что и MovieClip ниже.
-                        swf.movieClips?.forEach { mc ->
+                        safeList { swf.movieClips }.forEach { mc ->
                             val mcChildren = mc.children.map { child ->
                                 ScMovieClipChildItem(id = child.id(), blend = child.blend(), name = child.name())
                             }
@@ -242,11 +246,11 @@ fun App(
                             )
                         }
 
-                        swf.shapes?.forEach { shape ->
+                        safeList { swf.shapes }.forEach { shape ->
                             objectsList.add(ScObjectItem(shape.id, "", "Shape", shapeCommands = shape.commands))
                         }
 
-                        swf.textFields?.forEach { tf ->
+                        safeList { swf.textFields }.forEach { tf ->
                             objectsList.add(ScObjectItem(tf.id, "", "TextField"))
                         }
 
@@ -255,7 +259,7 @@ fun App(
                         // SupercellSWF, но id у них из того же общего пространства id, что
                         // и у MovieClip/Shape/TextField (см. SupercellSWF.addMovieClipModifier,
                         // nextId считается по сумме всех четырёх списков).
-                        swf.movieClipModifiers?.forEach { modifier ->
+                        safeList { swf.movieClipModifiers }.forEach { modifier ->
                             val type = when (modifier.tag) {
                                 dev.donutquine.swf.Tag.MODIFIER_STATE_2 -> ScMovieClipModifierType.MASK_BEGIN
                                 dev.donutquine.swf.Tag.MODIFIER_STATE_3 -> ScMovieClipModifierType.MASKED_BEGIN
@@ -425,8 +429,8 @@ fun App(
                                 infoLabel = when {
                                     isShapeSelected -> "Shape ${selectedObj?.id} · Objects: ${selectedObj?.shapeCommands?.size}"
                                     isMovieClipSelected -> {
-                                        val nameSuffix = if (!selectedObj?.name.isNullOrEmpty()) " · ${selectedObj?.name}" else ""
-                                        "MovieClip ${selectedObj?.id}$nameSuffix · ${selectedObj?.fps} fps · frame ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
+                                        val nameSuffix = if (!selectedObj?.name.isNullOrEmpty()) "\n· ${selectedObj?.name}" else ""
+                                        "MovieClip ${selectedObj?.id}$nameSuffix\n· ${selectedObj?.fps} fps\n· frame ${(mcController?.currentFrame ?: 0) + 1}/${selectedObj?.mcFrames?.size}"
                                     }
                                     currentTexture != null -> "Texture ${currentTexture.index} · ${currentTexture.width}×${currentTexture.height} · ${currentTexture.format}"
                                     else -> null
