@@ -19,7 +19,8 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.delay
+import dev.donutquine.swf.shapes.ShapeDrawBitmapCommand
+import androidx.compose.runtime.withFrameNanos
 import ui.ScBlendMode
 import ui.ScColorTransformItem
 import ui.ScMatrixBankItem
@@ -70,10 +71,15 @@ fun rememberMovieClipController(movieClip: ScObjectItem): MovieClipController {
 
     LaunchedEffect(controller, controller.isPlaying) {
         if (!controller.isPlaying || controller.frameCount <= 1) return@LaunchedEffect
-        val frameDelayMs = (1000 / controller.fps.coerceAtLeast(1)).coerceAtLeast(1).toLong()
+        val startFrame = controller.currentFrame
+        var startTimeNanos = -1L
         while (true) {
-            delay(frameDelayMs)
-            controller.setFrame(controller.currentFrame + 1)
+            withFrameNanos { frameTimeNanos ->
+                if (startTimeNanos < 0) startTimeNanos = frameTimeNanos
+                val elapsedSeconds = (frameTimeNanos - startTimeNanos) / 1_000_000_000f
+                val framesElapsed = (elapsedSeconds * controller.fps).toInt()
+                controller.setFrame(startFrame + framesElapsed)
+            }
         }
     }
 
@@ -81,6 +87,44 @@ fun rememberMovieClipController(movieClip: ScObjectItem): MovieClipController {
 }
 
 internal val IDENTITY_MATRIX = ScMatrixItem()
+
+// texCoords и indices зависят только от самого Shape-command (его вершин/UV/треугольников)
+// и от useStrip (константа на весь файл) — от текущего кадра/матрицы НЕ зависят, в отличие
+// от positions. Раньше они пересобирались заново на каждый draw call КАЖДЫЙ кадр — кэшируем
+// по идентичности command (ShapeDrawBitmapCommand не переиспользуется между разными шейпами,
+// а сам список obj.shapeCommands не пересоздаётся между кадрами).
+private val shapeGeometryCache = mutableMapOf<ShapeDrawBitmapCommand, Pair<FloatArray, ShortArray>>()
+
+private fun getOrBuildShapeGeometry(
+    command: ShapeDrawBitmapCommand,
+    textureItem: ScTextureItem,
+    useStrip: Boolean
+): Pair<FloatArray, ShortArray> {
+    return shapeGeometryCache.getOrPut(command) {
+        val vertexCount = command.vertexCount
+        val triangleCount = command.triangleCount
+        val texCoords = FloatArray(vertexCount * 2)
+        for (i in 0 until vertexCount) {
+            texCoords[i * 2] = command.getU(i) * textureItem.bitmap!!.width
+            texCoords[i * 2 + 1] = command.getV(i) * textureItem.bitmap!!.height
+        }
+        val indices = ShortArray(triangleCount * 3)
+        if (useStrip) {
+            for (t in 0 until triangleCount) {
+                indices[t * 3] = t.toShort()
+                indices[t * 3 + 1] = (t + 1).toShort()
+                indices[t * 3 + 2] = (t + 2).toShort()
+            }
+        } else {
+            for (t in 0 until triangleCount) {
+                indices[t * 3] = 0
+                indices[t * 3 + 1] = (t + 1).toShort()
+                indices[t * 3 + 2] = (t + 2).toShort()
+            }
+        }
+        texCoords to indices
+    }
+}
 
 // Композиция двух аффинных матриц: результат.apply(p) == parent.apply(child.apply(p)).
 // См. dev.donutquine.swf.Matrix2x3#applyX/applyY:
@@ -197,7 +241,6 @@ private fun collectDrawCalls(
                 if (vertexCount < 3 || triangleCount <= 0) continue
 
                 val positions = FloatArray(vertexCount * 2)
-                val texCoords = FloatArray(vertexCount * 2)
                 for (i in 0 until vertexCount) {
                     val rawX = command.getX(i)
                     val rawY = command.getY(i)
@@ -208,26 +251,8 @@ private fun collectDrawCalls(
                     }
                     positions[i * 2] = matrix.applyX(localX, localY)
                     positions[i * 2 + 1] = matrix.applyY(localX, localY)
-                    texCoords[i * 2] = command.getU(i) * textureItem.bitmap.width
-                    texCoords[i * 2 + 1] = command.getV(i) * textureItem.bitmap.height
                 }
-
-                // Тот же режим триангуляции, что и в ScShapeView (см. комментарий там):
-                // зависит от версии контейнера, а не от того, MovieClip это или Shape.
-                val indices = ShortArray(triangleCount * 3)
-                if (useStrip) {
-                    for (t in 0 until triangleCount) {
-                        indices[t * 3] = t.toShort()
-                        indices[t * 3 + 1] = (t + 1).toShort()
-                        indices[t * 3 + 2] = (t + 2).toShort()
-                    }
-                } else {
-                    for (t in 0 until triangleCount) {
-                        indices[t * 3] = 0
-                        indices[t * 3 + 1] = (t + 1).toShort()
-                        indices[t * 3 + 2] = (t + 2).toShort()
-                    }
-                }
+                val (texCoords, indices) = getOrBuildShapeGeometry(command, textureItem, useStrip)
 
                 output.add(MovieClipDrawCall(textureItem, positions, texCoords, indices, colorTransform, blendMode, maskGroupId))
             }
@@ -359,42 +384,11 @@ private fun collectDrawCalls(
 // (DrawScope.size внутри Canvas{}, либо PointerInputScope.size снаружи — оба в px).
 private fun computeFitTransform(
     movieClip: ScObjectItem,
-    objectsById: Map<Int, ScObjectItem>,
-    matrixBanks: List<ScMatrixBankItem>,
-    modifiersById: Map<Int, ScMovieClipModifierType>,
-    textures: List<ScTextureItem>,
-    useStrip: Boolean,
-    timeSeconds: Float,
     canvasWidth: Float,
     canvasHeight: Float
 ): FitTransform? {
-    val probe = mutableListOf<MovieClipDrawCall>()
-    collectDrawCalls(
-        objectId = movieClip.id,
-        matrix = IDENTITY_MATRIX,
-        ownMatrix = IDENTITY_MATRIX,
-        scalingGrid = null,
-        colorTransform = ScColorTransformItem(),
-        blendMode = ScBlendMode.NORMAL,
-        maskGroupId = null,
-        overrides = emptyMap(),
-        objectsById = objectsById,
-        matrixBanks = matrixBanks,
-        modifiersById = modifiersById,
-        maskGeometryById = mutableMapOf(),
-        maskIdAllocator = MaskIdAllocator(),
-        textures = textures,
-        useStrip = useStrip,
-        timeSeconds = timeSeconds,
-        depth = 0,
-        output = probe
-    )
-    if (probe.isEmpty()) return null
-
-    val scale = 1f
-    val offsetX = canvasWidth / 2f
-    val offsetY = canvasHeight / 2f
-    return FitTransform(scale, offsetX, offsetY)
+    if (movieClip.mcFrames.isEmpty()) return null
+    return FitTransform(1f, canvasWidth / 2f, canvasHeight / 2f)
 }
 
 private const val GIZMO_HANDLE_HIT_RADIUS_PX = 14f
@@ -466,10 +460,7 @@ fun ScMovieClipView(
                             pointerScreen = start
                             val frame = rootFrame
                             val fit = if (frame != null) {
-                                computeFitTransform(
-                                    movieClip, objectsById, matrixBanks, modifiersById, textures,
-                                    useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
-                                )
+                                computeFitTransform(movieClip, size.width.toFloat(), size.height.toFloat())
                             } else {
                                 null
                             }
@@ -512,10 +503,7 @@ fun ScMovieClipView(
                         },
                         onDrag = { _, dragAmount ->
                             pointerScreen += dragAmount
-                            val fit = computeFitTransform(
-                                movieClip, objectsById, matrixBanks, modifiersById, textures,
-                                useStrip, timeSeconds, size.width.toFloat(), size.height.toFloat()
-                            )
+                            val fit = computeFitTransform(movieClip, size.width.toFloat(), size.height.toFloat())
 
                             if (fit != null) {
                                 when (val mode = dragMode) {
@@ -575,10 +563,7 @@ fun ScMovieClipView(
 
         // Стабильный fit — БЕЗ учёта overrides (см. комментарий у computeFitTransform),
         // иначе редактирование дёргало бы масштаб канвы на каждый кадр драга.
-        val fit = computeFitTransform(
-            movieClip, objectsById, matrixBanks, modifiersById, textures,
-            useStrip, 0f, size.width, size.height
-        ) ?: return@Canvas
+        val fit = computeFitTransform(movieClip, size.width, size.height) ?: return@Canvas
         val scale = fit.scale
         val offsetX = fit.offsetX
         val offsetY = fit.offsetY
