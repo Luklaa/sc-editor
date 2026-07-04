@@ -54,7 +54,7 @@ actual fun DrawScope.drawTexturedMesh(
     drawIntoCanvas { canvas ->
         val androidBitmap = texture.asAndroidBitmap()
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
             shader = BitmapShader(androidBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
             // RGB-тонирование + alpha (ColorTransform целиком), а не просто глобальная
             // альфа — см. комментарий в desktop actual.

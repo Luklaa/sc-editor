@@ -8,8 +8,11 @@ import androidx.compose.ui.graphics.nativeCanvas
 import org.jetbrains.skia.BlendMode as SkiaBlendMode
 import org.jetbrains.skia.ColorFilter
 import org.jetbrains.skia.ColorMatrix
+import org.jetbrains.skia.FilterMipmap
+import org.jetbrains.skia.FilterMode
 import org.jetbrains.skia.FilterTileMode
 import org.jetbrains.skia.Image
+import org.jetbrains.skia.MipmapMode
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.VertexMode
 import ui.ScBlendMode
@@ -60,7 +63,11 @@ actual fun DrawScope.drawTexturedMesh(
         }
 
         val paint = Paint().apply {
-            shader = skiaImage.makeShader(FilterTileMode.CLAMP, FilterTileMode.CLAMP)
+            shader = skiaImage.makeShader(
+                FilterTileMode.CLAMP,
+                FilterTileMode.CLAMP,
+                FilterMipmap(FilterMode.LINEAR, MipmapMode.NONE)
+            )
             // RGB-тонирование + alpha (ColorTransform целиком) через матрицу цвета поверх
             // текстуры, а не просто глобальная альфа — иначе объекты, перекрашенные через
             // colorTransform (например один и тот же blur-текстура для разных цветных
