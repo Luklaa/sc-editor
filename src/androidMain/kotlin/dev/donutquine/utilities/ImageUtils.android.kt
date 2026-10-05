@@ -20,9 +20,11 @@ actual object ImageUtils {
             }
         }
     }
+    // Сжатые KTX (ETC/ASTC) декодируем на GPU - внешних утилит ktx/ktx2ktx2 на Android нет.
     actual fun decompressKtx(ktx: KhronosTexture): ImageBitmap? {
-
-        return null
+        val level = ktx.levels.firstOrNull() ?: return null
+        val pixels = GlesTextureDecoder.decode(ktx.width, ktx.height, ktx.glInternalFormat, level) ?: return null
+        return createBitmap(ktx.width, ktx.height, pixels, false)
     }
     actual fun cropPixelArray(
         pixelArray: IntArray,

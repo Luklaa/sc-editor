@@ -16,6 +16,7 @@ import dev.donutquine.utilities.ImageUtils
 import dev.donutquine.utilities.rgbaBytesToArgbInts
 import team.nulls.ntengine.assets.KhronosTextureDataLoader
 import ui.GlassSidebar
+import ui.CompactMenuDrawer
 import ui.GlassViewport
 import ui.GlassTimelinePanel
 import ui.OpenedTab
@@ -123,7 +124,14 @@ fun App(
     triggerCloseFile: Boolean,
     onCloseFileHandled: () -> Unit,
     triggerCloseAllFiles: Boolean,
-    onCloseAllFilesHandled: () -> Unit
+    onCloseAllFilesHandled: () -> Unit,
+    // Компактный режим (телефон): Objects/Textures/Info уезжают в выдвижное «бургер»-меню.
+    compactLayout: Boolean = false,
+    menuOnRight: Boolean = false,
+    menuOpen: Boolean = false,
+    onMenuOpenChange: (Boolean) -> Unit = {},
+    // Необязательная верхняя панель (на Android - кнопки Open / Settings); рисуется над рабочей областью.
+    topBar: (@Composable () -> Unit)? = null
 ) {
     val openedTabs = remember { mutableStateListOf<OpenedTab>() }
     var activeTabIndex by remember { mutableStateOf(-1) }
@@ -348,6 +356,9 @@ fun App(
 
     MaterialTheme {
         Box(modifier = Modifier.fillMaxSize()) {
+          Column(modifier = Modifier.fillMaxSize()) {
+            topBar?.invoke()
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
@@ -362,21 +373,33 @@ fun App(
 
                     // Вкладки открытых файлов (Tabs)
                     if (openedTabs.isNotEmpty()) {
-                        ui.GlassFileTabBar(
-                            openedTabs = openedTabs,
-                            activeTabIndex = activeTabIndex,
-                            onTabSelect = { activeTabIndex = it },
-                            onTabClose = { index ->
-                                openedTabs.removeAt(index)
-                                activeTabIndex = if (openedTabs.isEmpty()) -1 else openedTabs.size - 1
+                        val showBurger = compactLayout && activeTab != null
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (showBurger && !menuOnRight) {
+                                ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+                                Spacer(modifier = Modifier.width(8.dp))
                             }
-                        )
+                            ui.GlassFileTabBar(
+                                openedTabs = openedTabs,
+                                activeTabIndex = activeTabIndex,
+                                onTabSelect = { activeTabIndex = it },
+                                onTabClose = { index ->
+                                    openedTabs.removeAt(index)
+                                    activeTabIndex = if (openedTabs.isEmpty()) -1 else openedTabs.size - 1
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (showBurger && menuOnRight) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     // Рабочее пространство: Сайдбар + Вьюпорт
                     Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        if (activeTab != null) {
+                        if (activeTab != null && !compactLayout) {
                             GlassSidebar(
                                 openedTab = activeTab,
                                 onObjectSelected = { objIndex ->
@@ -482,6 +505,7 @@ fun App(
                         }
                     }
                 }
+
             }
             Box(
                 modifier = Modifier
@@ -494,6 +518,35 @@ fun App(
                         )
                     )
             )
+            }
+          }
+            if (compactLayout && activeTab != null) {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val drawerWidth = minOf(300.dp, maxWidth * 0.78f)
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        CompactMenuDrawer(
+                            onRight = menuOnRight,
+                            open = menuOpen,
+                            onDismiss = { onMenuOpenChange(false) },
+                            drawerWidth = drawerWidth
+                        ) {
+                            GlassSidebar(
+                                openedTab = activeTab,
+                                onObjectSelected = { objIndex ->
+                                    openedTabs[activeTabIndex] = activeTab.copy(activeObjectIndex = objIndex, viewMode = "OBJECT")
+                                    onMenuOpenChange(false)
+                                },
+                                onTextureSelected = { texIndex ->
+                                    openedTabs[activeTabIndex] = activeTab.copy(activeTextureIndex = texIndex, viewMode = "TEXTURE")
+                                    onMenuOpenChange(false)
+                                },
+                                showResizeHandle = false,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -112,6 +112,7 @@ fun GlassSidebar(
     onObjectSelected: (Int) -> Unit,
     onTextureSelected: (Int) -> Unit,
     onResizeDrag: (androidx.compose.ui.unit.Dp) -> Unit = {},
+    showResizeHandle: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var activeBottomTab by remember { mutableStateOf("Objects") }
@@ -637,6 +638,7 @@ fun GlassSidebar(
 
             // Невидимый хендл ресайза на всю высоту сайдбара, у правого края —
             // без фона и обводки, только курсор + три точки-индикатор.
+            if (showResizeHandle) {
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -663,6 +665,7 @@ fun GlassSidebar(
                         )
                     }
                 }
+            }
             }
         }
     }
