@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -31,11 +32,11 @@ fun BurgerButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .size(40.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.85f))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color(0xFF1E293B))
+        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -90,7 +91,7 @@ fun BoxScope.CompactMenuDrawer(
             .graphicsLayer { translationX = (1f - progress) * widthPx * (if (onRight) 1f else -1f) }
             .clip(shape)
             // Плотная подложка вместо полупрозрачного стекла: текст читается поверх затемнения.
-            .background(Color(0xFFF1F5F9))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         CompositionLocalProvider(LocalGlassBlur provides false) {
             content()

@@ -13,12 +13,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import com.luklaaa.sceditor.ui.AppTheme
+import androidx.compose.material3.AlertDialogDefaults.containerColor
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -59,65 +61,73 @@ class MainActivity : ComponentActivity() {
             var themeMode by remember { mutableStateOf(loadThemeMode()) }
 
             // Назад: сначала закрываем настройки / бургер-меню, потом выходим.
-            BackHandler {
-                when {
-                    showSettings -> showSettings = false
-                    menuOpen -> menuOpen = false
-                    else -> finish()
-                }
-            }
-
-            // Отступы по бокам под вырез камеры (в горизонтали вырез слева/справа).
-            val cutoutInsets = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
-
-            App(
-                onTitleChanged = {},
-                onExit = { finish() },
-                triggerOpenFile = triggerOpenFile,
-                onOpenFileHandled = { triggerOpenFile = false },
-                triggerCloseFile = false,
-                onCloseFileHandled = {},
-                triggerCloseAllFiles = false,
-                onCloseAllFilesHandled = {},
-                compactLayout = true,
-                menuOnRight = menuOnRight,
-                menuOpen = menuOpen,
-                onMenuOpenChange = { menuOpen = it },
-                contentInsets = cutoutInsets,
-                themeMode = themeMode,
-                topBar = {
-                    val shift = rememberCutoutIconShift(barHeight = 48.dp, iconZone = 60.dp)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFDFE7F5))
-                            // высота панели не меняется, иконки сдвигаются по горизонтали от выреза
-                            .padding(start = 4.dp + shift.first, end = 4.dp + shift.second),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { triggerOpenFile = true }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Open file", tint = Color(0xFF1E293B))
-                        }
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color(0xFF1E293B))
-                        }
+            AppTheme(mode = themeMode) {
+                BackHandler {
+                    when {
+                        showSettings -> showSettings = false
+                        menuOpen -> menuOpen = false
+                        else -> finish()
                     }
                 }
-            )
 
-            if (showSettings) {
-                AlertDialog(
-                    onDismissRequest = { showSettings = false },
-                    title = { Text("Settings") },
-                    text = {
-                        HideSystemBarsInDialog()
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Burger menu side", modifier = Modifier.weight(1f))
+                // Отступы по бокам под вырез камеры (в горизонтали вырез слева/справа).
+                val cutoutInsets = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+
+                App(
+                    onTitleChanged = {},
+                    onExit = { finish() },
+                    triggerOpenFile = triggerOpenFile,
+                    onOpenFileHandled = { triggerOpenFile = false },
+                    triggerCloseFile = false,
+                    onCloseFileHandled = {},
+                    triggerCloseAllFiles = false,
+                    onCloseAllFilesHandled = {},
+                    compactLayout = true,
+                    menuOnRight = menuOnRight,
+                    menuOpen = menuOpen,
+                    onMenuOpenChange = { menuOpen = it },
+                    contentInsets = cutoutInsets,
+                    themeMode = themeMode,
+                    topBar = {
+                        val shift = rememberCutoutIconShift(barHeight = 48.dp, iconZone = 60.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.secondary)
+                                .padding(start = 4.dp + shift.first, end = 4.dp + shift.second),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { triggerOpenFile = true }) {
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = "Open file",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { showSettings = true }) {
+                                Icon(
+                                    Icons.Filled.Settings,
+                                    contentDescription = "Settings",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                )
+
+                if (showSettings) {
+                    AlertDialog(
+                        onDismissRequest = { showSettings = false },
+                        title = { Text("Settings") },
+                        text = {
+                            HideSystemBarsInDialog()
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Burger menu side", modifier = Modifier.weight(1f))
                                     Switch(
                                         checked = menuOnRight,
                                         onCheckedChange = { checked ->
@@ -125,30 +135,33 @@ class MainActivity : ComponentActivity() {
                                             prefs.edit().putBoolean(KEY_MENU_ON_RIGHT, checked).apply()
                                         }
                                     )
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            Text("Theme (not working for now)")
-                            listOf(
-                                ThemeMode.SYSTEM to "System",
-                                ThemeMode.LIGHT to "Light",
-                                ThemeMode.DARK to "Dark"
-                            ).forEach { (mode, label) ->
-                                val select = {
-                                    themeMode = mode
-                                    prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
                                 }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().clickable(onClick = select),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(selected = themeMode == mode, onClick = select)
-                                    Text(label)
+                                Spacer(Modifier.height(16.dp))
+                                Text("Color theme")
+                                listOf(
+                                    ThemeMode.SYSTEM to "System",
+                                    ThemeMode.LIGHT to "Light",
+                                    ThemeMode.DARK to "Dark"
+                                ).forEach { (mode, label) ->
+                                    val select = {
+                                        themeMode = mode
+                                        prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().clickable(onClick = select),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(selected = themeMode == mode, onClick = select)
+                                        Text(label)
+                                    }
                                 }
                             }
-                        }
-                    },
-                    confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } }
-                )
+                        },
+                        containerColor = MaterialTheme.colorScheme.background,
+                        textContentColor = MaterialTheme.colorScheme.onBackground,
+                        confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } }
+                    )
+                }
             }
         }
     }

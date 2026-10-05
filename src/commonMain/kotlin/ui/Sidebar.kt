@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -216,13 +217,13 @@ fun GlassSidebar(
 //                Box(
 //                    modifier = Modifier
 //                        .fillMaxWidth()
-//                        .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-//                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+//                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+//                        .border(1.dp, MaterialTheme.colorScheme.surface.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
 //                        .padding(horizontal = 10.dp, vertical = 8.dp)
 //                ) {
 //                    Text(
 //                        text = "Objects: ${openedTab.objects.size} • Textures: ${openedTab.textures.size} • v${openedTab.containerVersion}",
-//                        color = Color(0xFF475569),
+//                        color = MaterialTheme.colorScheme.onSurfaceVariant,
 //                        fontSize = 11.sp,
 //                        maxLines = 1,
 //                        overflow = TextOverflow.Ellipsis
@@ -274,7 +275,7 @@ fun GlassSidebar(
                                             (if (sortColumn == colName)
                                                 if (sortAscending) "▲ " else "▼ "
                                             else "") + colName,
-                                            color = Color(0xFF1E293B),
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             maxLines = 1,
@@ -361,7 +362,7 @@ fun GlassSidebar(
                                 ) {
                                     Text(
                                         "Нет объектов по запросу",
-                                        color = Color(0xFF64748B),
+                                        color = MaterialTheme.colorScheme.outline,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -375,7 +376,7 @@ fun GlassSidebar(
                                         if (row.sectionTitle != null) {
                                             Text(
                                                 text = row.sectionTitle,
-                                                color = Color(0xFF0F172A),
+                                                color = MaterialTheme.colorScheme.onBackground,
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 modifier = Modifier.padding(
@@ -392,13 +393,13 @@ fun GlassSidebar(
                                                     .fillMaxWidth()
                                                     .clip(RoundedCornerShape(8.dp))
                                                     .background(
-                                                        if (isSelected) Color(0xFFE0F2FE).copy(
+                                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(
                                                             alpha = 0.55f
                                                         ) else Color.Transparent
                                                     )
                                                     .border(
                                                         1.dp,
-                                                        if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
+                                                        if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                                                         RoundedCornerShape(8.dp)
                                                     )
                                                     .padding(vertical = 1.dp, horizontal = 6.dp)
@@ -415,7 +416,7 @@ fun GlassSidebar(
                                                 ) {
                                                     Text(
                                                         "${obj.id}",
-                                                        color = Color(0xFF475569),
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         fontSize = 12.sp,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -433,7 +434,7 @@ fun GlassSidebar(
                                                 ) {
                                                     Text(
                                                         obj.name.ifEmpty { "" },
-                                                        color = Color(0xFF475569),
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         fontSize = 12.sp,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -451,7 +452,7 @@ fun GlassSidebar(
                                                 ) {
                                                     Text(
                                                         obj.type,
-                                                        color = Color(0xFF94A3B8),
+                                                        color = MaterialTheme.colorScheme.outlineVariant,
                                                         fontSize = 11.sp,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
@@ -467,13 +468,13 @@ fun GlassSidebar(
                                                     .fillMaxWidth()
                                                     .clip(RoundedCornerShape(8.dp))
                                                     .background(
-                                                        if (isSelected) Color(0xFFE0F2FE).copy(
+                                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(
                                                             alpha = 0.55f
                                                         ) else Color.Transparent
                                                     )
                                                     .border(
                                                         1.dp,
-                                                        if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
+                                                        if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                                                         RoundedCornerShape(8.dp)
                                                     )
                                                     .clickable { onTextureSelected(row.textureIndex) }
@@ -481,7 +482,7 @@ fun GlassSidebar(
                                             ) {
                                                 Text(
                                                     "Texture ${tex.index} · ${tex.width}x${tex.height} · ${tex.format}",
-                                                    color = Color(0xFF475569),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontSize = 11.sp,
                                                     maxLines = 1
                                                 )
@@ -499,7 +500,7 @@ fun GlassSidebar(
                                 ) {
                                     Text(
                                         "Нет текстур по запросу",
-                                        color = Color(0xFF64748B),
+                                        color = MaterialTheme.colorScheme.outline,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -515,13 +516,13 @@ fun GlassSidebar(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(
-                                                    if (isSelected) Color(0xFFE0F2FE).copy(
+                                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(
                                                         alpha = 0.55f
                                                     ) else Color.Transparent
                                                 )
                                                 .border(
                                                     1.dp,
-                                                    if (isSelected) Color(0xFFBAE6FD) else Color.Transparent,
+                                                    if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                                                     RoundedCornerShape(8.dp)
                                                 )
                                                 .clickable { onTextureSelected(tex.index) }
@@ -529,7 +530,7 @@ fun GlassSidebar(
                                         ) {
                                             Text(
                                                 "Texture ${tex.index} · ${tex.width}x${tex.height}",
-                                                color = Color(0xFF475569),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 fontSize = 11.sp,
                                                 maxLines = 1
                                             )
@@ -568,15 +569,15 @@ fun GlassSidebar(
                                 .padding(top = 6.dp)
                                 .height(36.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color.White.copy(alpha = 0.8f))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
                                 .border(1.dp, Color(0xFF93C5FD), RoundedCornerShape(10.dp))
                                 .padding(horizontal = 10.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             if (queryValue.isEmpty()) {
                                 Text(
-                                    "Искать в ${activeSearchColumn}...",
-                                    color = Color(0xFF94A3B8),
+                                    "Find in ${activeSearchColumn}...",
+                                    color = MaterialTheme.colorScheme.outlineVariant,
                                     fontSize = 12.sp,
                                     maxLines = 1
                                 )
@@ -590,7 +591,7 @@ fun GlassSidebar(
                                         else -> typeQuery = it
                                     }
                                 },
-                                textStyle = TextStyle(fontSize = 12.sp, color = Color(0xFF1E293B)),
+                                textStyle = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface),
                                 singleLine = true,
                                 cursorBrush = SolidColor(Color(0xFF2563EB)),
                                 modifier = Modifier.fillMaxWidth()
@@ -603,10 +604,10 @@ fun GlassSidebar(
                             .fillMaxWidth()
                             .height(35.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
                             .border(
                                 1.dp,
-                                Color.White.copy(alpha = 0.45f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
                                 RoundedCornerShape(12.dp)
                             )
                             .padding(2.dp),
@@ -626,7 +627,7 @@ fun GlassSidebar(
                             ) {
                                 Text(
                                     text = tab,
-                                    color = if (isActive) Color(0xFF1E293B) else Color(0xFF64748B),
+                                    color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                 )

@@ -1,1 +1,1 @@
-expect fun openFilePicker(onFileSelected: (String?) -> Unit)
+expect fun openFilePicker(hint: String, allowMultiple: Boolean, onFilesSelected: (List<String>) -> Unit)

@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,13 +43,13 @@ fun GlassTimelinePanel(
                         modifier = Modifier
                             .size(60.dp, 35.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFE0F2FE).copy(alpha = 0.75f))
-                            .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f))
+                            .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
                             .border(1.dp, Color.Black.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
                             .clickable(enabled = frameCount > 1) { onTogglePlaying() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "Stop", color = Color(0xFF1E293B), fontSize = 12.sp)
+                        Text(text = "Stop", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                     }
                 } else {
                     Box(
@@ -59,14 +60,14 @@ fun GlassTimelinePanel(
                             .clickable(enabled = frameCount > 1) { onTogglePlaying() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "Play", color = Color(0xFF1E293B), fontSize = 12.sp)
+                        Text(text = "Play", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                     }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
                     text = "Frame: ${currentFrame + 1} / $frameCount",
-                    color = Color(0xFF1E293B),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 12.sp
                 )
 
@@ -78,9 +79,9 @@ fun GlassTimelinePanel(
                     valueRange = 0f..lastFrameIndex.toFloat(),
                     steps = (frameCount - 2).coerceAtLeast(0),
                     colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFBAE6FD),          // сам кружок
-                        activeTrackColor = Color(0xFFE0F2FE),    // полоска слева от кружка
-                        inactiveTrackColor = Color(0xFFE0F2FE).copy(alpha = 0.2f) // справа
+                        thumbColor = MaterialTheme.colorScheme.secondaryContainer,          // сам кружок
+                        activeTrackColor = MaterialTheme.colorScheme.primaryContainer,    // полоска слева от кружка
+                        inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) // справа
                     ),
                     modifier = Modifier.weight(1f)
                 )

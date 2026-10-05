@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,10 +34,11 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 private const val WHEEL_PAN_SENSITIVITY = 40f
 
 
+@Composable
 fun Modifier.checkerboard(
     cellSize: Dp = 10.dp,
-    colorLight: Color = Color(0xFFBFBFBF),
-    colorDark: Color = Color(0xFF8F8F8F),
+    colorLight: Color = MaterialTheme.colorScheme.errorContainer,
+    colorDark: Color = MaterialTheme.colorScheme.error,
     offsetX: Float = 0f,
     offsetY: Float = 0f
 ): Modifier = drawWithCache {
@@ -86,9 +88,9 @@ fun GlassViewport(
     val camera = rememberViewportCameraState(cameraResetKey)
 
     Box(modifier = modifier) {
-        Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).blur(20.dp).background(Color.White.copy(alpha = 0.45f)))
+        Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).blur(20.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)))
         Box(
-            modifier = Modifier.fillMaxSize().border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(0.8f), Color.White.copy(0.15f))), RoundedCornerShape(24.dp)).padding(16.dp),
+            modifier = Modifier.fillMaxSize().border(1.2.dp, androidx.compose.ui.graphics.Brush.linearGradient(listOf(MaterialTheme.colorScheme.surface.copy(0.8f), MaterialTheme.colorScheme.surface.copy(0.15f))), RoundedCornerShape(24.dp)).padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             if (loadedImage != null || content != null) {
@@ -96,7 +98,7 @@ fun GlassViewport(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.surface.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                         .pointerInput(camera) {
                             awaitPointerEventScope {
                                 var dragging = false
@@ -216,7 +218,7 @@ fun GlassViewport(
             } else {
                 Text(
                     text = "Hello!\n\nThis is SC Editor, an app to view Supercell graphic files format.",
-                    color = Color(0xFF94A3B8),
+                    color = MaterialTheme.colorScheme.outlineVariant,
                     fontSize = 15.sp,
                     lineHeight = 22.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center

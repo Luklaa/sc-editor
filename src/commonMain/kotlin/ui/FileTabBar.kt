@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -140,8 +141,8 @@ fun GlassFileTabBar(
                         .width(IntrinsicSize.Min)
                         .heightIn(min = 40.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isActive) Color(0xFFE0F2FE).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.2f))
-                        .border(1.dp, if (isActive) Color(0xFFBAE6FD) else Color.White.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .background(if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.2f))
+                        .border(1.dp, if (isActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                         .clickable { onTabSelect(index) }
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     contentAlignment = Alignment.CenterStart
@@ -154,7 +155,7 @@ fun GlassFileTabBar(
                         Text(
                             text = tab.name,
                             modifier = Modifier.offset(y = (-3).dp),
-                            color = Color(0xFF1E293B),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -165,14 +166,14 @@ fun GlassFileTabBar(
                             modifier = Modifier
                                 .size(22.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.35f))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f))
                                 .clickable { onTabClose(index) },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
                                 contentDescription = null,
-                                tint = Color(0xFF64748B),
+                                tint = MaterialTheme.colorScheme.outline,
                                 modifier = Modifier.size(14.dp)
                             )
                         }

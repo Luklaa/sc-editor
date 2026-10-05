@@ -22,6 +22,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(compose.runtime)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
@@ -85,6 +86,8 @@ android {
 compose.desktop {
     application {
         mainClass = "MainKt"
+        // По умолчанию JVM берёт 1/4 RAM, для больших .sc (ui.sc и т.п.) этого может не хватать.
+        jvmArgs += listOf("-XX:MaxRAMPercentage=70")
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
             packageName = "SCEditor"

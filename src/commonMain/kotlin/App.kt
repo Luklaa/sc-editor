@@ -21,7 +21,10 @@ import ui.GlassSidebar
 import ui.CompactMenuDrawer
 import ui.GlassViewport
 import ui.GlassTimelinePanel
+import kotlinx.coroutines.launch
 import ui.OpenedTab
+import ui.ToastHost
+import ui.ToastState
 import ui.ScObjectItem
 import ui.ScTextureItem
 import ui.ScMatrixBankItem
@@ -151,185 +154,69 @@ fun App(
         if (activeTab != null) {
             onTitleChanged(activeTab.name)
         } else {
-            onTitleChanged("SC Editor 1.6.2")
+            onTitleChanged("SC Editor 1.6.3")
+        }
+    }
+
+    val scope = rememberCoroutineScope()
+    val toast = remember { ToastState() }
+
+    fun String.isTextureFile() =
+        substringAfterLast('\\').substringAfterLast('/').endsWith("_tex.sc", ignoreCase = true)
+
+    fun fileNameOf(path: String) = path.substringAfterLast('\\').substringAfterLast('/')
+
+    fun finishLoad(outcome: LoadOutcome) {
+        when (outcome) {
+            is LoadOutcome.Loaded -> {
+                openedTabs.add(outcome.tab)
+                activeTabIndex = openedTabs.size - 1
+                toast.dismiss()
+            }
+            is LoadOutcome.Failed -> toast.show(outcome.message)
+            is LoadOutcome.NeedsTexture -> toast.show("Texture file ${outcome.expectedName} doesn't match this .sc")
+        }
+    }
+
+    // path - основной файл (.sc / .sctx); texturePath - _tex.sc, который пользователь уже выбрал (если выбрал).
+    fun loadFile(path: String, texturePath: String?, askedForTexture: Boolean) {
+        val name = fileNameOf(path)
+        toast.show("Opening $name...", persistent = true)
+        scope.launch {
+            val report: (String) -> Unit = { toast.show(it, persistent = true) }
+            var outcome = loadTabOnLargeStack(path, null, report)
+
+            // Библиотека сама ищет _tex.sc рядом с .sc. Если рядом нет, а пользователь выбрал его
+            // отдельно (из другой папки или под другим именем) - подставляем выбранный.
+            if (outcome is LoadOutcome.NeedsTexture && texturePath != null) {
+                outcome = loadTabOnLargeStack(path, ExternalTexture(texturePath, outcome.expectedName), report)
+            }
+
+            if (outcome is LoadOutcome.NeedsTexture && !askedForTexture) {
+                // .sc действительно ссылается на внешние текстуры, а их нет - только тогда просим выбрать _tex.sc.
+                openFilePicker("Select _tex.sc file", false) { picked ->
+                    val tex = picked.firstOrNull()
+                    if (tex == null) {
+                        toast.show("$name needs a _tex.sc file")
+                    } else {
+                        loadFile(path, tex, askedForTexture = true)
+                    }
+                }
+                return@launch
+            }
+            finishLoad(outcome)
         }
     }
 
     val openFileLambda = {
-        openFilePicker { path ->
-            if (path != null) {
-                val fileName = path.substringAfterLast('\\').substringAfterLast('/')
-
-                try {
-                    val texturesList = mutableListOf<ScTextureItem>()
-                    val objectsList = mutableListOf<ScObjectItem>()
-                    val matrixBanksList = mutableListOf<ScMatrixBankItem>()
-                    val modifiersList = mutableListOf<ScMovieClipModifierItem>()
-                    var loadedImage: ImageBitmap? = null
-                    var statusText = "Загрузка..."
-                    var containerVersion = 1
-
-                    if (path.endsWith(".sctx", ignoreCase = true)) {
-                        val texture = SupercellTextureAssetFileLoader.loadInternal(path)
-                        val pixelTypeStr = texture.pixelType?.toString() ?: "RGBA8"
-                        statusText = "Файл: $fileName\nТекстура SCTX ${texture.width}x${texture.height}\nФормат: $pixelTypeStr"
-                        texturesList.add(ScTextureItem(0, texture.width, texture.height, pixelTypeStr, bitmap = null))
-
-                        if (texture.mipMaps != null && texture.mipMaps.isNotEmpty()) {
-                            val firstMipMap = texture.mipMaps[0]
-                            val rawBytes = firstMipMap.data
-                            if (rawBytes != null) {
-                                val isCompressed = pixelTypeStr.contains("ASTC", ignoreCase = true) || pixelTypeStr.contains("ETC", ignoreCase = true)
-                                if (isCompressed) {
-                                    val ktx = team.nulls.ntengine.assets.KhronosTexture(
-                                        0, 1, 0, if (pixelTypeStr.contains("4x4")) 0x93B0 else 0x93B7,
-                                        0x1908, texture.width, texture.height, arrayOf(rawBytes)
-                                    )
-                                    loadedImage = ImageUtils.decompressKtx(ktx)
-                                } else {
-                                    val size32 = firstMipMap.width * firstMipMap.height * 4
-                                    val size16 = firstMipMap.width * firstMipMap.height * 2
-                                    val argbPixels = try {
-                                        when {
-                                            rawBytes.size >= size32 -> rgbaBytesToArgbInts(firstMipMap.width, firstMipMap.height, rawBytes)
-                                            rawBytes.size >= size16 -> convert16BitToArgb(firstMipMap.width, firstMipMap.height, rawBytes, pixelTypeStr)
-                                            else -> convert8BitToArgb(firstMipMap.width, firstMipMap.height, rawBytes)
-                                        }
-                                    } catch (e: Exception) { IntArray(firstMipMap.width * firstMipMap.height) }
-                                    loadedImage = ImageUtils.createBitmap(firstMipMap.width, firstMipMap.height, argbPixels, false)
-                                }
-                            }
-                            texturesList[0] = texturesList[0].copy(bitmap = loadedImage)
-                        }
-                    } else if (path.endsWith(".sc", ignoreCase = true)) {
-                        val swf = SupercellSWFAssetFileLoader.loadInternal(path)
-                        fun <T> safeList(block: () -> List<T>?): List<T> =
-                            try { block() ?: emptyList() } catch (e: NullPointerException) { emptyList() }
-
-                        containerVersion = swf.containerVersion
-                        val tCount = safeList { swf.textures }.size
-                        val sCount = safeList { swf.shapes }.size
-                        val mcCount = safeList { swf.movieClips }.size
-                        val exportsCount = safeList { swf.exports }.size
-                        val tfCount = safeList { swf.textFields }.size
-
-                        statusText = "Файл: $fileName\nВерсия контейнера: ${swf.containerVersion}\n" +
-                                "Текстур: $tCount | Экспортов: $exportsCount | Мувиклипов: $mcCount | Форм: $sCount | Текстовых полей: $tfCount"
-
-                        val texturesRaw = safeList { swf.textures }
-                        for (i in 0 until tCount) {
-                            val tex = texturesRaw[i]
-                            val rawBuffer = tex.getPixels()
-                            val ktxData = tex.getKtxData()
-                            val typeStr = tex.type?.toString() ?: "RGBA8"
-                            val bitmap = decodeTextureToBitmap(tex.width, tex.height, rawBuffer, ktxData, typeStr)
-
-                            texturesList.add(ScTextureItem(i, tex.width, tex.height, typeStr, bitmap))
-                        }
-
-                        // ВАЖНО: "Export" — это не отдельный тип объекта, а просто имя,
-                        // которое навешивается на уже существующий MovieClip (см. оригинальный
-                        // SupercellSWF.loadSc1(): movieClip.setExportName(export.name())).
-                        // Поэтому здесь мы НЕ создаём отдельные ScObjectItem с типом "Export" —
-                        // это давало дублирующиеся строки с тем же id, что и MovieClip ниже.
-                        safeList { swf.movieClips }.forEach { mc ->
-                            val mcChildren = mc.children.map { child ->
-                                ScMovieClipChildItem(id = child.id(), blend = child.blend(), name = child.name())
-                            }
-                            val mcFrames = mc.frames.map { frame ->
-                                ScMovieClipFrameItem(
-                                    label = frame.label,
-                                    elements = frame.elements.map { el ->
-                                        ScMovieClipFrameElementItem(el.childIndex(), el.matrixIndex(), el.colorTransformIndex())
-                                    }
-                                )
-                            }
-                            objectsList.add(
-                                ScObjectItem(
-                                    id = mc.id,
-                                    name = mc.exportName ?: "",
-                                    type = "MovieClip",
-                                    fps = mc.fps,
-                                    matrixBankIndex = mc.matrixBankIndex,
-                                    mcChildren = mcChildren,
-                                    mcFrames = mcFrames,
-                                    scalingGrid = mc.scalingGrid?.let { grid ->
-                                        ScRectItem(grid.left, grid.top, grid.right, grid.bottom)
-                                    }
-                                )
-                            )
-                        }
-
-                        safeList { swf.shapes }.forEach { shape ->
-                            objectsList.add(ScObjectItem(shape.id, "", "Shape", shapeCommands = shape.commands))
-                        }
-
-                        safeList { swf.textFields }.forEach { tf ->
-                            objectsList.add(ScObjectItem(tf.id, "", "TextField"))
-                        }
-
-                        // Маркеры маскинга (Tag.MODIFIER_STATE_2/3/4) — см. комментарий у
-                        // ScMovieClipModifierType. Это не DisplayObject, отдельный список в
-                        // SupercellSWF, но id у них из того же общего пространства id, что
-                        // и у MovieClip/Shape/TextField (см. SupercellSWF.addMovieClipModifier,
-                        // nextId считается по сумме всех четырёх списков).
-                        safeList { swf.movieClipModifiers }.forEach { modifier ->
-                            val type = when (modifier.tag) {
-                                dev.donutquine.swf.Tag.MODIFIER_STATE_2 -> ScMovieClipModifierType.MASK_BEGIN
-                                dev.donutquine.swf.Tag.MODIFIER_STATE_3 -> ScMovieClipModifierType.MASKED_BEGIN
-                                dev.donutquine.swf.Tag.MODIFIER_STATE_4 -> ScMovieClipModifierType.MASK_END
-                                else -> null
-                            }
-                            if (type != null) {
-                                modifiersList.add(ScMovieClipModifierItem(modifier.id, type))
-                            }
-                        }
-
-                        // Банки матриц/цвет-трансформов, на которые ссылаются mcFrames через
-                        // matrixBankIndex мувиклипа (см. SupercellSWF.getMatrixBank(index)).
-                        swf.matrixBanks?.forEach { bank ->
-                            matrixBanksList.add(
-                                ScMatrixBankItem(
-                                    matrices = bank.matrices.map { m -> ScMatrixItem(m.a, m.b, m.c, m.d, m.x, m.y) },
-                                    colorTransforms = bank.colorTransforms.map { ct ->
-                                        ScColorTransformItem(
-                                            redMultiplier = ct.redMultiplier,
-                                            greenMultiplier = ct.greenMultiplier,
-                                            blueMultiplier = ct.blueMultiplier,
-                                            alpha = ct.alpha,
-                                            redAddition = ct.redAddition,
-                                            greenAddition = ct.greenAddition,
-                                            blueAddition = ct.blueAddition
-                                        )
-                                    }
-                                )
-                            )
-                        }
-                    }
-
-                    val defaultObjectIndex = objectsList
-                        .withIndex()
-                        .filter { it.value.name.isNotBlank() }
-                        .minByOrNull { it.value.name }
-                        ?.index ?: -1
-
-                    openedTabs.add(
-                        OpenedTab(
-                            name = fileName,
-                            path = path,
-                            containerVersion = containerVersion,
-                            textures = texturesList,
-                            objects = objectsList,
-                            activeObjectIndex = defaultObjectIndex,
-                            activeTextureIndex = 0,
-                            statusText = statusText,
-                            matrixBanks = matrixBanksList,
-                            modifiers = modifiersList
-                        )
-                    )
-                    activeTabIndex = openedTabs.size - 1
-                } catch (e: Exception) {
-                    e.printStackTrace()
+        openFilePicker("Select .sc file (if it has _tex.sc, select both files)", true) { paths ->
+            if (paths.isNotEmpty()) {
+                val main = paths.firstOrNull { !it.isTextureFile() }
+                val texture = paths.firstOrNull { it.isTextureFile() }
+                if (main == null) {
+                    toast.show("Select the main .sc file, not only _tex.sc")
+                } else {
+                    loadFile(main, texture, askedForTexture = false)
                 }
             }
         }
@@ -368,7 +255,7 @@ fun App(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
+                    .background(Brush.linearGradient(colors = listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.background)))
                     .then(contentInsets)
                     .padding(12.dp)
             ) {
@@ -527,6 +414,10 @@ fun App(
             )
             }
           }
+            ToastHost(
+                state = toast,
+                modifier = Modifier.align(Alignment.BottomCenter).then(contentInsets).padding(bottom = 28.dp)
+            )
             if (compactLayout && activeTab != null) {
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val drawerWidth = minOf(300.dp, maxWidth * 0.78f)

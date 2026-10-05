@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -35,12 +36,12 @@ fun GlassBox(
         Box(
             modifier = Modifier.fillMaxSize().clip(shape)
                 .then(if (blurEnabled) Modifier.blur(radius = 20.dp) else Modifier)
-                .background(Color.White.copy(alpha = alpha))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = alpha))
         )
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .border(width = 1.2.dp, brush = Brush.linearGradient(colors = listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.15f))), shape = shape)
+                .border(width = 1.2.dp, brush = Brush.linearGradient(colors = listOf(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), MaterialTheme.colorScheme.surface.copy(alpha = 0.15f))), shape = shape)
                 .padding(contentPadding)
         ) {
             content()
