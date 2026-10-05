@@ -22,12 +22,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : ComponentActivity() {
     private val prefs by lazy { getSharedPreferences("settings", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        enterImmersive()
         AndroidFilePicker.init(this)
         setContent {
             var triggerOpenFile by remember { mutableStateOf(false) }
@@ -100,6 +105,16 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enterImmersive()
+    }
+
+    private fun enterImmersive() {
+        val c = WindowInsetsControllerCompat(window, window.decorView)
+        c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        c.hide(WindowInsetsCompat.Type.systemBars())
     }
 
     private companion object {
