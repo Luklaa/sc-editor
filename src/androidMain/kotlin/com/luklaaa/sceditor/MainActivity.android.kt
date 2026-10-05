@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -95,7 +96,7 @@ class MainActivity : ComponentActivity() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = { triggerOpenFile = true }) {
-                            Icon(Icons.Filled.FolderOpen, contentDescription = "Open file", tint = Color(0xFF1E293B))
+                            Icon(Icons.Filled.Add, contentDescription = "Open file", tint = Color(0xFF1E293B))
                         }
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { showSettings = true }) {
@@ -116,17 +117,17 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Burger menu on the right", modifier = Modifier.weight(1f))
-                                Switch(
-                                    checked = menuOnRight,
-                                    onCheckedChange = { checked ->
-                                        menuOnRight = checked
-                                        prefs.edit().putBoolean(KEY_MENU_ON_RIGHT, checked).apply()
-                                    }
-                                )
+                                Text("Burger menu side", modifier = Modifier.weight(1f))
+                                    Switch(
+                                        checked = menuOnRight,
+                                        onCheckedChange = { checked ->
+                                            menuOnRight = checked
+                                            prefs.edit().putBoolean(KEY_MENU_ON_RIGHT, checked).apply()
+                                        }
+                                    )
                             }
                             Spacer(Modifier.height(16.dp))
-                            Text("Theme")
+                            Text("Theme (not working for now)")
                             listOf(
                                 ThemeMode.SYSTEM to "System",
                                 ThemeMode.LIGHT to "Light",
