@@ -130,6 +130,8 @@ fun App(
     menuOnRight: Boolean = false,
     menuOpen: Boolean = false,
     onMenuOpenChange: (Boolean) -> Unit = {},
+    // Отступы под вырез камеры (по бокам). Платформа сама решает, какие именно (Android передаёт displayCutout).
+    contentInsets: Modifier = Modifier,
     // Необязательная верхняя панель (на Android - кнопки Open / Settings); рисуется над рабочей областью.
     topBar: (@Composable () -> Unit)? = null
 ) {
@@ -363,6 +365,7 @@ fun App(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Brush.linearGradient(colors = listOf(Color(0xFFE2E8F0), Color(0xFFF8FAFC))))
+                    .then(contentInsets)
                     .padding(12.dp)
             ) {
                 val sidebarMaxWidth = maxWidth - 200.dp
@@ -541,7 +544,7 @@ fun App(
                                     onMenuOpenChange(false)
                                 },
                                 showResizeHandle = false,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize().then(contentInsets)
                             )
                         }
                     }
