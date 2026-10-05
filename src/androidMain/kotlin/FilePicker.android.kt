@@ -12,10 +12,10 @@ object AndroidFilePicker {
 
     fun init(activity: ComponentActivity) {
         this.activity = activity
-        launcher = activity.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        launcher = activity.registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             val callback = pendingCallback
             pendingCallback = null
-            callback?.invoke(uri?.let { copyToCache(it) })
+            callback?.invoke(if (uris.isNullOrEmpty()) null else copyToSessionDir(uris))
         }
     }
 
@@ -24,18 +24,31 @@ object AndroidFilePicker {
         launcher.launch(arrayOf("*/*"))
     }
 
-    private fun copyToCache(uri: Uri): String? {
+    private fun copyToSessionDir(uris: List<Uri>): String? {
         return try {
-            val name = queryName(uri) ?: "picked_file"
-            val outFile = File(activity.cacheDir, name)
-            activity.contentResolver.openInputStream(uri)?.use { input ->
-                outFile.outputStream().use { output -> input.copyTo(output) }
+            val root = File(activity.cacheDir, "opened")
+            root.listFiles()?.forEach { it.deleteRecursively() } // чистим прошлые сессии
+            val dir = File(root, System.currentTimeMillis().toString()).apply { mkdirs() }
+
+            val copied = uris.mapNotNull { uri ->
+                val name = (queryName(uri) ?: "picked_file").substringAfterLast('/').substringAfterLast('\\')
+                val out = File(dir, name)
+                activity.contentResolver.openInputStream(uri)?.use { input ->
+                    out.outputStream().use { output -> input.copyTo(output) }
+                } ?: return@mapNotNull null
+                out
             }
-            outFile.absolutePath
+            pickPrimary(copied)?.absolutePath
         } catch (e: Exception) {
             null
         }
     }
+
+    private fun pickPrimary(files: List<File>): File? =
+        files.firstOrNull { f ->
+            val n = f.name.lowercase()
+            (n.endsWith(".sctx") || n.endsWith(".sc2") || n.endsWith(".sc")) && !n.endsWith("_tex.sc")
+        } ?: files.firstOrNull()
 
     private fun queryName(uri: Uri): String? {
         var name: String? = null

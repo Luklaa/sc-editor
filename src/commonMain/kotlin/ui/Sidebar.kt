@@ -35,7 +35,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
-import java.awt.Cursor
 
 private data class SidebarListRow(
     val sectionTitle: String? = null,
@@ -643,7 +642,7 @@ fun GlassSidebar(
                     .align(Alignment.CenterEnd)
                     .width(6.dp)
                     .fillMaxHeight()
-                    .pointerHoverIcon(PointerIcon(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)))
+                    .pointerHoverIcon(resizeCursor())
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()

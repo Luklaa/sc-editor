@@ -27,14 +27,20 @@ kotlin {
                 implementation(compose.ui)
                 implementation(compose.materialIconsExtended)
                 implementation(files("libs/libktx-5.0.0.jar"))
-                implementation("dev.donutquine:supercell-texture:1.0.1")
-                implementation("dev.donutquine:supercell-swf:1.1.8")
-                implementation("com.github.luben:zstd-jni:1.5.7-7")
+                // zstd-jni исключаем из транзитивных зависимостей: на desktop нужен обычный jar,
+                // на Android - @aar с нативными библиотеками (см. desktopMain / androidMain).
+                implementation("dev.donutquine:supercell-texture:1.0.1") {
+                    exclude(group = "com.github.luben", module = "zstd-jni")
+                }
+                implementation("dev.donutquine:supercell-swf:1.1.8") {
+                    exclude(group = "com.github.luben", module = "zstd-jni")
+                }
             }
         }
         val androidMain by getting {
             dependencies {
                 implementation("androidx.activity:activity-compose:1.9.0")
+                implementation("com.github.luben:zstd-jni:1.5.7-7@aar")
             }
         }
         val desktopMain by getting {
@@ -42,6 +48,7 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.0")
                 implementation("com.formdev:flatlaf:3.7.1")
+                implementation("com.github.luben:zstd-jni:1.5.7-7")
             }
         }
     }
@@ -57,6 +64,16 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.6.2"
+
+        // libktx.so лежит только для arm64-v8a - не собираем остальные ABI,
+        // иначе на них приложение запустится без нативной библиотеки.
+        ndk { abiFilters += "arm64-v8a" }
+    }
+
+    sourceSets["main"].apply {
+        manifest.srcFile("src/androidMain/AndroidManifest.xml")
+        res.srcDirs("src/androidMain/res")
+        jniLibs.srcDirs("src/androidMain/jniLibs")
     }
 
     compileOptions {
