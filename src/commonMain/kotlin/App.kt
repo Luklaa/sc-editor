@@ -1,6 +1,8 @@
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
+import com.luklaaa.sceditor.ui.AppTheme
+import com.luklaaa.sceditor.ui.ThemeMode
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,6 +134,8 @@ fun App(
     onMenuOpenChange: (Boolean) -> Unit = {},
     // Отступы под вырез камеры (по бокам). Платформа сама решает, какие именно (Android передаёт displayCutout).
     contentInsets: Modifier = Modifier,
+    // Тема приложения. По умолчанию LIGHT - так UI выглядит как раньше (цвета ещё не переведены на тему).
+    themeMode: ThemeMode = ThemeMode.LIGHT,
     // Необязательная верхняя панель (на Android - кнопки Open / Settings); рисуется над рабочей областью.
     topBar: (@Composable () -> Unit)? = null
 ) {
@@ -356,7 +360,7 @@ fun App(
         }
     }
 
-    MaterialTheme {
+    AppTheme(themeMode) {
         Box(modifier = Modifier.fillMaxSize()) {
           Column(modifier = Modifier.fillMaxSize()) {
             topBar?.invoke()

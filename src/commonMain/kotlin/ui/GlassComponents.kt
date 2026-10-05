@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -12,6 +13,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/** Blur дорогой: в выдвижном меню (оно поверх плотной подложки) его отключаем. */
+val LocalGlassBlur = compositionLocalOf { true }
 
 @Composable
 fun GlassBox(
@@ -26,8 +30,13 @@ fun GlassBox(
     content: @Composable BoxScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(topStart = topStart, topEnd = topEnd, bottomStart = bottomStart, bottomEnd = bottomEnd)
+    val blurEnabled = LocalGlassBlur.current
     Box(modifier = modifier) {
-        Box(modifier = Modifier.fillMaxSize().clip(shape).blur(radius = 20.dp).background(Color.White.copy(alpha = alpha)))
+        Box(
+            modifier = Modifier.fillMaxSize().clip(shape)
+                .then(if (blurEnabled) Modifier.blur(radius = 20.dp) else Modifier)
+                .background(Color.White.copy(alpha = alpha))
+        )
         Box(
             modifier = Modifier
                 .fillMaxSize()

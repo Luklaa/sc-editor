@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.luklaaa.sceditor.ui.ThemeMode
 
 class MainActivity : ComponentActivity() {
     private val prefs by lazy { getSharedPreferences("settings", Context.MODE_PRIVATE) }
@@ -52,6 +55,7 @@ class MainActivity : ComponentActivity() {
             var menuOpen by remember { mutableStateOf(false) }
             var showSettings by remember { mutableStateOf(false) }
             var menuOnRight by remember { mutableStateOf(prefs.getBoolean(KEY_MENU_ON_RIGHT, false)) }
+            var themeMode by remember { mutableStateOf(loadThemeMode()) }
 
             // Назад: сначала закрываем настройки / бургер-меню, потом выходим.
             BackHandler {
@@ -79,6 +83,7 @@ class MainActivity : ComponentActivity() {
                 menuOpen = menuOpen,
                 onMenuOpenChange = { menuOpen = it },
                 contentInsets = cutoutInsets,
+                themeMode = themeMode,
                 topBar = {
                     val shift = rememberCutoutIconShift(barHeight = 48.dp, iconZone = 60.dp)
                     Row(
@@ -106,18 +111,39 @@ class MainActivity : ComponentActivity() {
                     title = { Text("Settings") },
                     text = {
                         HideSystemBarsInDialog()
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Burger menu on the right", modifier = Modifier.weight(1f))
-                            Switch(
-                                checked = menuOnRight,
-                                onCheckedChange = { checked ->
-                                    menuOnRight = checked
-                                    prefs.edit().putBoolean(KEY_MENU_ON_RIGHT, checked).apply()
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Burger menu on the right", modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = menuOnRight,
+                                    onCheckedChange = { checked ->
+                                        menuOnRight = checked
+                                        prefs.edit().putBoolean(KEY_MENU_ON_RIGHT, checked).apply()
+                                    }
+                                )
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            Text("Theme")
+                            listOf(
+                                ThemeMode.SYSTEM to "System",
+                                ThemeMode.LIGHT to "Light",
+                                ThemeMode.DARK to "Dark"
+                            ).forEach { (mode, label) ->
+                                val select = {
+                                    themeMode = mode
+                                    prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
                                 }
-                            )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable(onClick = select),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(selected = themeMode == mode, onClick = select)
+                                    Text(label)
+                                }
+                            }
                         }
                     },
                     confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } }
@@ -168,8 +194,14 @@ class MainActivity : ComponentActivity() {
         c.hide(WindowInsetsCompat.Type.systemBars())
     }
 
+    // LIGHT по умолчанию: цвета интерфейса пока не переведены на тему, тёмная выглядит неполноценно.
+    private fun loadThemeMode(): ThemeMode =
+        runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "") }
+            .getOrDefault(ThemeMode.LIGHT)
+
     private companion object {
         const val KEY_MENU_ON_RIGHT = "menu_on_right"
+        const val KEY_THEME_MODE = "theme_mode"
     }
 }
 

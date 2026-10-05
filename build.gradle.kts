@@ -62,8 +62,8 @@ android {
         applicationId = "com.luklaaa.sceditor"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.6.2"
+        versionCode = 2
+        versionName = "1.6.3"
 
         // libktx.so лежит только для arm64-v8a - не собираем остальные ABI,
         // иначе на них приложение запустится без нативной библиотеки.
@@ -88,7 +88,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
             packageName = "SCEditor"
-            packageVersion = "1.6.2"
+            packageVersion = "1.6.3"
         }
     }
 }
