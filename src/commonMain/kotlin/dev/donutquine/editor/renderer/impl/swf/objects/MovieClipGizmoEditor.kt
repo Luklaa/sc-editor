@@ -8,18 +8,6 @@ import ui.ScMatrixItem
 import ui.ScMovieClipModifierType
 import ui.ScObjectItem
 
-/**
- * Ручное редактирование позиции/размера ПРЯМЫХ children корневого MovieClip во вьюпорте —
- * аналог гизмо-хэндлов из старого Java-редактора (editor/gizmos/Gizmos.java), но упрощённый:
- * только move (тело) + uniform resize (угловые хэндлы), без поворота и без per-axis resize.
- *
- * Правки живут только в памяти этой сессии просмотра (GizmoState создаётся заново при смене
- * объекта — см. remember(movieClip.id) в ScMovieClipRenderer.kt) и НЕ пишутся обратно в файл.
- */
-
-// Накопленная правка одного элемента кадра (по индексу в frame.elements). dx/dy — сдвиг в
-// content-space (той же системе координат, что и matrix.x/y, т.е. ДО итогового fit-масштаба
-// канвы), scale — множитель поверх исходных a/b/c/d матрицы.
 internal data class GizmoOverride(
     val dx: Float = 0f,
     val dy: Float = 0f,
@@ -38,15 +26,11 @@ internal fun ScMatrixItem.withGizmoOverride(override: GizmoOverride): ScMatrixIt
     )
 }
 
-// Стейт гизмо для одного открытого MovieClip во вьюпорте.
 internal class GizmoState {
     var overrides by mutableStateOf<Map<Int, GizmoOverride>>(emptyMap())
     var selectedElementIndex by mutableStateOf<Int?>(null)
 }
 
-// Стабильный "fit" (масштаб + сдвиг для вписывания в канву), см. computeFitTransform в
-// ScMovieClipRenderer.kt. Специально считается БЕЗ учёта текущих gizmo-overrides, иначе
-// перетаскивание объекта дёргало бы зум всей канвы на каждый кадр драга.
 internal class FitTransform(
     val scale: Float,
     val offsetX: Float,
@@ -60,7 +44,6 @@ internal fun FloatArray.toScreenBounds(fit: FitTransform): FloatArray = floatArr
     this[3] * fit.scale + fit.offsetY
 )
 
-// Один выделяемый (селектящийся) прямой ребёнок корневого мувиклипа на текущем кадре.
 internal class SelectableGizmoElement(
     val elementIndex: Int,
     // Bounding box в content-space (ДО fit-масштаба), уже с применённым override, если есть.

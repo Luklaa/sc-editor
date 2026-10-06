@@ -8,20 +8,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
-/** Размер zstd-кадра (в сжатом виде), начинающегося с [offset] в direct-буфере [source]. */
 expect fun zstdFrameCompressedSize(source: ByteBuffer, offset: Int): Int
 
-/** Оборачивает поток сжатых данных в поток распаковки zstd. */
 expect fun zstdInputStream(input: InputStream): InputStream
 
-/**
- * Распаковывает один zstd-кадр, начинающийся с [offset] в direct-буфере [source], во временный файл
- * и возвращает его mmap-отображение (только чтение, little-endian).
- *
- * Почему не обычный direct-буфер: на Android `ByteBuffer.allocateDirect` выделяется в куче Java
- * (non-movable массив) и считается в её лимит, то есть ничего не выигрывает. Страницы mmap-файла
- * в кучу не входят.
- */
 fun zstdDecompressFrameMapped(source: ByteBuffer, offset: Int): ByteBuffer {
     val frameSize = zstdFrameCompressedSize(source, offset)
     val view = source.duplicate()
@@ -54,8 +44,6 @@ fun zstdDecompressFrameMapped(source: ByteBuffer, offset: Int): ByteBuffer {
         }
         return mapped.order(ByteOrder.LITTLE_ENDIAN)
     } finally {
-        // На Linux/Android отображение живёт и после удаления файла; на Windows удаление может не получиться
-        // пока файл отображён - тогда удалится при выходе.
         if (!tmp.delete()) tmp.deleteOnExit()
     }
 }

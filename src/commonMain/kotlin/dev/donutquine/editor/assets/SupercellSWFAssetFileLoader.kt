@@ -6,10 +6,6 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-/**
- * .sc (старые версии) ссылается на внешний _tex.sc, но рядом такого файла нет.
- * [expectedName] - имя файла, под которым библиотека ожидает увидеть текстуры.
- */
 class TextureFileMissingException(val expectedName: String) :
     Exception("Texture file is not found. Expected: $expectedName")
 
@@ -19,9 +15,6 @@ class SupercellSWFAssetFileLoader(private val filePath: String) {
     }
 
     companion object {
-        /**
-         * @throws TextureFileMissingException если .sc требует внешний _tex.sc, а его рядом нет.
-         */
         fun loadInternal(path: String): SupercellSWF {
             val swf = SupercellSWF()
             val file = File(path)
@@ -33,11 +26,7 @@ class SupercellSWFAssetFileLoader(private val filePath: String) {
             } catch (e: AssetLoadingException) {
                 throw e
             } catch (e: Exception) {
-                // Проверяем по имени класса, а не через catch (e: TextureFileNotFound), чтобы не зависеть от
-                // версии supercell-swf: исключение есть не во всех версиях API.
                 if (e.javaClass.simpleName == "TextureFileNotFound") {
-                    // Библиотека пишет в сообщении путь, под которым ожидала _tex.sc (для файлов с нестандартным
-                    // разрешением имя отличается от "<name>_tex.sc").
                     val expected = e.message?.substringAfter("Expected filepath: ", "")
                         ?.takeIf { it.isNotBlank() }
                         ?.let { File(it).name }
@@ -49,20 +38,18 @@ class SupercellSWFAssetFileLoader(private val filePath: String) {
             return swf
         }
 
-        /**
-         * Загрузка .sc вместе с вручную выбранным файлом текстур. Библиотека ищет текстуры строго рядом с .sc
-         * под определённым именем, поэтому кладём оба файла во временную папку (оригинальную папку
-         * пользователя не трогаем - на Android там вообще только копии из кэша).
-         */
         fun loadWithTexture(path: String, texturePath: String, expectedTextureName: String): SupercellSWF {
+            return withTextureCopy(path, texturePath, expectedTextureName) { copiedPath -> loadInternal(copiedPath) }
+        }
+
+        fun <T> withTextureCopy(path: String, texturePath: String, expectedTextureName: String, block: (String) -> T): T {
             val source = File(path)
             val dir = Files.createTempDirectory("sceditor_load").toFile()
             try {
                 Files.copy(source.toPath(), File(dir, source.name).toPath(), StandardCopyOption.REPLACE_EXISTING)
                 Files.copy(File(texturePath).toPath(), File(dir, expectedTextureName).toPath(), StandardCopyOption.REPLACE_EXISTING)
-                return loadInternal(File(dir, source.name).absolutePath)
+                return block(File(dir, source.name).absolutePath)
             } finally {
-                // swf уже целиком в памяти, временные копии больше не нужны
                 dir.deleteRecursively()
             }
         }

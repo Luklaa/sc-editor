@@ -8,7 +8,7 @@ plugins {
 kotlin {
     androidTarget {
         compilations.all {
-            kotlinOptions { jvmTarget = "17" }
+            kotlinOptions.jvmTarget = "17"
         }
     }
 
@@ -23,15 +23,15 @@ kotlin {
             dependencies {
                 implementation(compose.runtime)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-                // Нужен на этапе компиляции: SC2-загрузчик напрямую работает с FlatBuffers-классами из supercell-swf.
                 implementation("com.google.flatbuffers:flatbuffers-java:25.2.10")
+                implementation("dev.donutquine:sc-file:1.0.3") {
+                    exclude(group = "com.github.luben", module = "zstd-jni")
+                }
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
                 implementation(compose.materialIconsExtended)
                 implementation(files("libs/libktx-5.0.0.jar"))
-                // zstd-jni исключаем из транзитивных зависимостей: на desktop нужен обычный jar,
-                // на Android - @aar с нативными библиотеками (см. desktopMain / androidMain).
                 implementation("dev.donutquine:supercell-texture:1.0.1") {
                     exclude(group = "com.github.luben", module = "zstd-jni")
                 }
@@ -68,8 +68,6 @@ android {
         versionCode = 2
         versionName = "1.6.3"
 
-        // libktx.so лежит только для arm64-v8a - не собираем остальные ABI,
-        // иначе на них приложение запустится без нативной библиотеки.
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -88,7 +86,6 @@ android {
 compose.desktop {
     application {
         mainClass = "MainKt"
-        // По умолчанию JVM берёт 1/4 RAM, для больших .sc (ui.sc и т.п.) этого может не хватать.
         jvmArgs += listOf("-XX:MaxRAMPercentage=70")
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)

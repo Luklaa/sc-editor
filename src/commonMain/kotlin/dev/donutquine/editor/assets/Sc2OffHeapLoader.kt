@@ -26,21 +26,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
-/**
- * Загрузчик SC2 (контейнеры v5/v6) с минимальным использованием кучи Java.
- *
- * Логика повторяет SupercellSWFFlatLoader из supercell-swf, но тяжёлые данные живут вне кучи:
- *  - файл отображается в память (mmap), а не читается целиком в byte[] (да ещё и копируется);
- *  - основной zstd-контейнер распаковывается во временный файл, который тоже отображается через mmap
- *    (обычный direct-буфер на Android живёт в куче Java и в лимит входит);
- *  - вложенные FlatBuffers-чанки - это срезы этого буфера, а не копии byte[];
- *  - данные текстур копируются в byte[] по одной и только на время декодирования.
- */
 object Sc2OffHeapLoader {
     private const val SC_MAGIC = 0x5343
     private val LE = ByteOrder.LITTLE_ENDIAN
 
-    /** @return null, если это не SC2 (v5/v6) - тогда файл должна читать обычная библиотека. */
     fun load(path: String, preferLowres: Boolean = false, onStage: (String) -> Unit = {}): SwfData? {
         val file = File(path)
         if (!file.isFile || file.length() < 8) return null
@@ -49,7 +38,6 @@ object Sc2OffHeapLoader {
             raf.channel.map(FileChannel.MapMode.READ_ONLY, 0, raf.length())
         }
 
-        // Заголовок, как в ScFileUnpacker: magic, версия (для SC2 записана наоборот), у v6 ещё 2 байта флагов.
         if (mapped.getShort(0).toInt() != SC_MAGIC) return null
         var pos = 2
         var version = mapped.getInt(pos)
@@ -64,13 +52,12 @@ object Sc2OffHeapLoader {
 
         val start = mapped.duplicate()
         start.position(pos)
-        val data = start.slice().order(LE) // все смещения ниже - относительно начала этих данных, как в библиотеке
+        val data = start.slice().order(LE)
 
         AppLog.i("SC2 off-heap loader: container v$version, file ${file.length() / 1024} KB, ${AppLog.memory()}")
         return Parser(data, version, preferLowres, onStage).parse()
     }
 
-    /** Вложенный FlatBuffers-чанк: длина + данные. Возвращаем срез без копирования и сдвигаем позицию. */
     private fun nested(buffer: ByteBuffer): ByteBuffer {
         val length = buffer.getInt()
         val begin = buffer.position()
@@ -157,7 +144,6 @@ object Sc2OffHeapLoader {
                 null
             }
 
-            // Данные копируем только для этой текстуры - после декодирования массив уйдёт в GC.
             var ktx: ByteArray? = null
             val length = fb.dataLength().toInt()
             if (length != 0) {
@@ -189,7 +175,6 @@ object Sc2OffHeapLoader {
             return result
         }
 
-        /** Мувиклип создаётся по запросу и не хранится: так в куче нет одновременно всех клипов файла. */
         private fun createMovieClip(clips: FBMovieClips, index: Int): MovieClipOriginal {
             val clip = clips.clips(index)
             val frameData = matrixDataBuffers?.get(clip.matrixBankIndex().toInt())
@@ -334,7 +319,6 @@ object Sc2OffHeapLoader {
 
                 banks.add(bank)
 
-                // Срез с данными кадров (без ByteBuffer.slice(int, int) - его нет на старых Android).
                 val frameView = buffer.duplicate()
                 val frameStart = eb.frameDataOffset().toInt()
                 frameView.position(frameStart)

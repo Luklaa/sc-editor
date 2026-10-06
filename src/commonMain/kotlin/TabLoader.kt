@@ -1,5 +1,6 @@
 import androidx.compose.ui.graphics.ImageBitmap
 import com.luklaaa.sceditor.AppLog
+import dev.donutquine.editor.assets.Sc1StreamingLoader
 import dev.donutquine.editor.assets.Sc2OffHeapLoader
 import dev.donutquine.editor.assets.SupercellSWFAssetFileLoader
 import dev.donutquine.editor.assets.SwfData
@@ -22,38 +23,28 @@ import ui.ScTextureItem
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-/** _tex.sc, выбранный пользователем вручную (когда рядом с .sc его не нашлось). */
 class ExternalTexture(val path: String, val expectedName: String)
 
 sealed class LoadOutcome {
     class Loaded(val tab: OpenedTab) : LoadOutcome()
 
-    /** .sc ссылается на внешний _tex.sc, а рядом его нет - нужно попросить пользователя выбрать файл. */
     class NeedsTexture(val expectedName: String) : LoadOutcome()
 
     class Failed(val message: String) : LoadOutcome()
 }
 
-/**
- * Загружает .sc / .sctx и собирает [OpenedTab]. Тяжёлая функция - вызывать НЕ из UI-потока.
- * Любые ошибки (включая OutOfMemoryError / StackOverflowError) превращаются в [LoadOutcome.Failed],
- * чтобы приложение не падало на больших файлах.
- */
 fun loadTab(
     path: String,
     externalTexture: ExternalTexture? = null,
     onProgress: (String) -> Unit = {}
 ): LoadOutcome {
     val fileName = path.substringAfterLast('\\').substringAfterLast('/')
-    // Запоминаем, на каком этапе мы были - чтобы при нехватке памяти понять, что именно её съело.
     var stage = "starting"
     val tracked: (String) -> Unit = {
         stage = it
         AppLog.i("  $it (${AppLog.memory()})")
         onProgress(it)
     }
-    // Собираем мусор перед загрузкой: так в логе виден реальный объём, занятый уже открытыми файлами,
-    // а не вместе с недособранным мусором.
     System.gc()
     val startedAt = System.currentTimeMillis()
     val files = listOf(path, path.dropLast(3) + "_tex.sc").distinct().mapNotNull { describeScFile(it) }.joinToString("; ")
@@ -89,11 +80,6 @@ fun loadTab(
     }
 }
 
-/**
- * То же, что [loadTab], но на отдельном потоке с большим стеком: на тяжёлых файлах (ui.sc и подобных)
- * обычный стек потока (особенно у корутин-диспетчера и на Android) может переполниться.
- * UI-поток при этом не блокируется.
- */
 suspend fun loadTabOnLargeStack(
     path: String,
     externalTexture: ExternalTexture?,
@@ -109,23 +95,37 @@ suspend fun loadTabOnLargeStack(
     thread.start()
 }
 
-/**
- * SC2 (v5/v6) читаем своим загрузчиком, который держит тяжёлые данные в нативной памяти, а не в куче Java.
- * Всё остальное (SC1) и любой сбой нашего загрузчика - через обычную библиотеку, как раньше.
- */
 private fun loadSwfData(path: String, externalTexture: ExternalTexture?, onStage: (String) -> Unit): SwfData {
     if (externalTexture == null) {
         try {
             Sc2OffHeapLoader.load(path, false, onStage)?.let { return it }
-            AppLog.i("Not an SC2 container - using the library loader")
         } catch (e: OutOfMemoryError) {
             throw e
         } catch (e: Throwable) {
             e.printStackTrace()
-            AppLog.e("SC2 off-heap loader failed, falling back to the library loader (${AppLog.memory()})", e)
+           AppLog.e("SC2 off-heap loader failed, falling back (${AppLog.memory()})", e)
         }
     }
-    onStage("Parsing (library loader)")
+    try {
+        val streamed = if (externalTexture != null) {
+            SupercellSWFAssetFileLoader.withTextureCopy(path, externalTexture.path, externalTexture.expectedName) { copied ->
+                Sc1StreamingLoader.load(copied, onStage)
+            }
+        } else {
+            Sc1StreamingLoader.load(path, onStage)
+        }
+        if (streamed != null) return streamed
+    } catch (e: OutOfMemoryError) {
+        throw e
+    } catch (e: TextureFileMissingException) {
+        throw e
+    } catch (e: Throwable) {
+        e.printStackTrace()
+        AppLog.e("SC1 streaming loader failed, falling back to the library loader (${AppLog.memory()})", e)
+    }
+
+    AppLog.i("Using the library loader")
+    onStage("Decoding (library loader)")
     val swf = if (externalTexture != null) {
         SupercellSWFAssetFileLoader.loadWithTexture(path, externalTexture.path, externalTexture.expectedName)
     } else {
@@ -149,13 +149,13 @@ private fun buildTab(
     val matrixBanksList = mutableListOf<ScMatrixBankItem>()
     val modifiersList = mutableListOf<ScMovieClipModifierItem>()
     var loadedImage: ImageBitmap? = null
-    var statusText = "Загрузка..."
+    var statusText = "Loading..."
     var containerVersion = 1
 
     if (path.endsWith(".sctx", ignoreCase = true)) {
         val texture = SupercellTextureAssetFileLoader.loadInternal(path)
         val pixelTypeStr = texture.pixelType?.toString() ?: "RGBA8"
-        statusText = "Файл: $fileName\nТекстура SCTX ${texture.width}x${texture.height}\nФормат: $pixelTypeStr"
+        statusText = "File: $fileName\nTexture SCTX ${texture.width}x${texture.height}\nFormat: $pixelTypeStr"
         texturesList.add(ScTextureItem(0, texture.width, texture.height, pixelTypeStr, bitmap = null))
 
         if (texture.mipMaps != null && texture.mipMaps.isNotEmpty()) {
@@ -185,7 +185,7 @@ private fun buildTab(
             texturesList[0] = texturesList[0].copy(bitmap = loadedImage)
         }
     } else if (path.endsWith(".sc", ignoreCase = true)) {
-        onProgress("Parsing $fileName...")
+        onProgress("Decoding $fileName...")
         val swf = loadSwfData(path, externalTexture, onProgress)
         fun <T> safeList(block: () -> List<T>?): List<T> =
             try { block() ?: emptyList() } catch (e: NullPointerException) { emptyList() }
@@ -197,14 +197,13 @@ private fun buildTab(
         val exportsCount = safeList { swf.exports }.size
         val tfCount = safeList { swf.textFields }.size
 
-        statusText = "Файл: $fileName\nВерсия контейнера: ${swf.containerVersion}\n" +
-                "Текстур: $tCount | Экспортов: $exportsCount | Мувиклипов: $mcCount | Форм: $sCount | Текстовых полей: $tfCount"
+        statusText = "File: $fileName\nContainer version: ${swf.containerVersion}\n" +
+                "Textures: $tCount | Exports: $exportsCount | MovieClips: $mcCount | Shapes: $sCount | TextFields: $tfCount"
 
         for (i in 0 until tCount) {
             onProgress("Decoding textures ${i + 1}/$tCount...")
             val tex = swf.openTexture(i)
             val typeStr = tex.typeName ?: "RGBA8"
-            // Одна неудачная текстура не должна ронять импорт всего файла (особенно больших, вроде ui.sc).
             val bitmap = try {
                 decodeTextureToBitmap(tex.width, tex.height, tex.pixels, tex.ktxData, typeStr)
             } catch (e: Throwable) {
@@ -214,19 +213,11 @@ private fun buildTab(
             }
 
             texturesList.add(ScTextureItem(i, tex.width, tex.height, typeStr, bitmap))
-            // Исходные данные текстуры больше не нужны (в списке уже готовый bitmap) - освобождаем сразу,
-            // а не после всего файла, иначе в памяти одновременно лежат исходные и декодированные копии.
             tex.release()
         }
 
-        // ВАЖНО: "Export" — это не отдельный тип объекта, а просто имя,
-        // которое навешивается на уже существующий MovieClip (см. оригинальный
-        // SupercellSWF.loadSc1(): movieClip.setExportName(export.name())).
-        // Поэтому здесь мы НЕ создаём отдельные ScObjectItem с типом "Export" —
-        // это давало дублирующиеся строки с тем же id, что и MovieClip ниже.
         for (mcIndex in 0 until mcCount) {
             if (mcIndex % 500 == 0) onProgress("Reading movie clips $mcIndex/$mcCount...")
-            // Объект библиотеки живёт только на время этой итерации - дальше остаётся наша компактная копия.
             val mc = swf.movieClipAt(mcIndex)
             val mcChildren = mc.children.map { child ->
                 ScMovieClipChildItem(id = child.id(), blend = child.blend(), name = child.name())
@@ -261,11 +252,6 @@ private fun buildTab(
             objectsList.add(ScObjectItem(tf.id, "", "TextField"))
         }
 
-        // Маркеры маскинга (Tag.MODIFIER_STATE_2/3/4) — см. комментарий у
-        // ScMovieClipModifierType. Это не DisplayObject, отдельный список в
-        // SupercellSWF, но id у них из того же общего пространства id, что
-        // и у MovieClip/Shape/TextField (см. SupercellSWF.addMovieClipModifier,
-        // nextId считается по сумме всех четырёх списков).
         safeList { swf.movieClipModifiers }.forEach { modifier ->
             val type = when (modifier.tag) {
                 dev.donutquine.swf.Tag.MODIFIER_STATE_2 -> ScMovieClipModifierType.MASK_BEGIN
@@ -278,8 +264,6 @@ private fun buildTab(
             }
         }
 
-        // Банки матриц/цвет-трансформов, на которые ссылаются mcFrames через
-        // matrixBankIndex мувиклипа (см. SupercellSWF.getMatrixBank(index)).
         swf.matrixBanks?.forEach { bank ->
             matrixBanksList.add(
                 ScMatrixBankItem(
@@ -320,11 +304,6 @@ private fun buildTab(
     )
 }
 
-/**
- * Размер файла и тип контейнера по заголовку - для диагностики нехватки памяти.
- * LZMA-контейнер (v1) распаковывается через ByteArrayOutputStream, то есть кратковременно занимает
- * в несколько раз больше памяти, чем размер распакованных данных.
- */
 private fun describeScFile(path: String): String? = try {
     val file = java.io.File(path)
     if (!file.isFile) {
@@ -356,11 +335,6 @@ private fun describeScFile(path: String): String? = try {
     null
 }
 
-/**
- * Элементы кадра, упакованные в IntArray (3 числа на элемент). В больших файлах их миллионы:
- * отдельный объект на каждый стоит ~24 байта плюс ссылка, упакованный вариант - 12 байт.
- * Для остального кода это обычный List, объекты создаются при обращении.
- */
 private class PackedElementList(private val data: IntArray) : AbstractList<ScMovieClipFrameElementItem>() {
     override val size: Int get() = data.size / 3
 
