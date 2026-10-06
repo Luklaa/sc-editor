@@ -1,5 +1,7 @@
 import androidx.compose.ui.graphics.ImageBitmap
+import dev.donutquine.editor.assets.Sc2OffHeapLoader
 import dev.donutquine.editor.assets.SupercellSWFAssetFileLoader
+import dev.donutquine.editor.assets.SwfData
 import dev.donutquine.editor.assets.SupercellTextureAssetFileLoader
 import dev.donutquine.editor.assets.TextureFileMissingException
 import dev.donutquine.utilities.ImageUtils
@@ -58,7 +60,7 @@ fun loadTab(
             .joinToString("; ")
         LoadOutcome.Failed(
             "Not enough memory to open $fileName (heap limit $limitMb MB; stopped at: $stage" +
-                (if (details.isEmpty()) "" else "; $details") + ")"
+                    (if (details.isEmpty()) "" else "; $details") + ")"
         )
     } catch (e: StackOverflowError) {
         e.printStackTrace()
@@ -88,6 +90,28 @@ suspend fun loadTabOnLargeStack(
     )
     thread.isDaemon = true
     thread.start()
+}
+
+/**
+ * SC2 (v5/v6) читаем своим загрузчиком, который держит тяжёлые данные в нативной памяти, а не в куче Java.
+ * Всё остальное (SC1) и любой сбой нашего загрузчика - через обычную библиотеку, как раньше.
+ */
+private fun loadSwfData(path: String, externalTexture: ExternalTexture?): SwfData {
+    if (externalTexture == null) {
+        try {
+            Sc2OffHeapLoader.load(path)?.let { return it }
+        } catch (e: OutOfMemoryError) {
+            throw e
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+    val swf = if (externalTexture != null) {
+        SupercellSWFAssetFileLoader.loadWithTexture(path, externalTexture.path, externalTexture.expectedName)
+    } else {
+        SupercellSWFAssetFileLoader.loadInternal(path)
+    }
+    return SwfData.fromLibrary(swf)
 }
 
 private fun buildTab(
@@ -142,16 +166,12 @@ private fun buildTab(
         }
     } else if (path.endsWith(".sc", ignoreCase = true)) {
         onProgress("Parsing $fileName...")
-        val swf = if (externalTexture != null) {
-            SupercellSWFAssetFileLoader.loadWithTexture(path, externalTexture.path, externalTexture.expectedName)
-        } else {
-            SupercellSWFAssetFileLoader.loadInternal(path)
-        }
+        val swf = loadSwfData(path, externalTexture)
         fun <T> safeList(block: () -> List<T>?): List<T> =
             try { block() ?: emptyList() } catch (e: NullPointerException) { emptyList() }
 
         containerVersion = swf.containerVersion
-        val tCount = safeList { swf.textures }.size
+        val tCount = swf.textureCount
         val sCount = safeList { swf.shapes }.size
         val mcCount = safeList { swf.movieClips }.size
         val exportsCount = safeList { swf.exports }.size
@@ -160,26 +180,22 @@ private fun buildTab(
         statusText = "Файл: $fileName\nВерсия контейнера: ${swf.containerVersion}\n" +
                 "Текстур: $tCount | Экспортов: $exportsCount | Мувиклипов: $mcCount | Форм: $sCount | Текстовых полей: $tfCount"
 
-        val texturesRaw = safeList { swf.textures }
         for (i in 0 until tCount) {
             onProgress("Decoding textures ${i + 1}/$tCount...")
-            val tex = texturesRaw[i]
-            val rawBuffer = tex.getPixels()
-            val ktxData = tex.getKtxData()
-            val typeStr = tex.type?.toString() ?: "RGBA8"
+            val tex = swf.openTexture(i)
+            val typeStr = tex.typeName ?: "RGBA8"
             // Одна неудачная текстура не должна ронять импорт всего файла (особенно больших, вроде ui.sc).
             val bitmap = try {
-                decodeTextureToBitmap(tex.width, tex.height, rawBuffer, ktxData, typeStr)
+                decodeTextureToBitmap(tex.width, tex.height, tex.pixels, tex.ktxData, typeStr)
             } catch (e: Throwable) {
                 e.printStackTrace()
                 null
             }
 
             texturesList.add(ScTextureItem(i, tex.width, tex.height, typeStr, bitmap))
-            // Сырые пиксели в объекте библиотеки больше не нужны (в списке уже готовый bitmap).
-            // Освобождаем сразу, а не после всего файла - иначе в памяти одновременно лежат
-            // и исходные, и декодированные копии всех текстур.
-            releaseTextureData(tex)
+            // Исходные данные текстуры больше не нужны (в списке уже готовый bitmap) - освобождаем сразу,
+            // а не после всего файла, иначе в памяти одновременно лежат исходные и декодированные копии.
+            tex.release()
         }
 
         // ВАЖНО: "Export" — это не отдельный тип объекта, а просто имя,
@@ -294,19 +310,6 @@ private fun buildTab(
     )
 }
 
-/** Обнуляет сырые данные текстуры в объекте библиотеки (там нет публичного способа их освободить). */
-private fun releaseTextureData(texture: Any) {
-    for (fieldName in listOf("pixels", "ktxData")) {
-        try {
-            val field = texture.javaClass.getDeclaredField(fieldName)
-            field.isAccessible = true
-            field.set(texture, null)
-        } catch (_: Throwable) {
-            // Не получилось (другая версия библиотеки) - ничего страшного, просто не освободим раньше времени.
-        }
-    }
-}
-
 /**
  * Размер файла и тип контейнера по заголовку - для диагностики нехватки памяти.
  * LZMA-контейнер (v1) распаковывается через ByteArrayOutputStream, то есть кратковременно занимает
@@ -322,7 +325,7 @@ private fun describeScFile(path: String): String? = try {
         val read = file.inputStream().use { it.read(header) }
         fun beInt(offset: Int) =
             ((header[offset].toInt() and 0xFF) shl 24) or ((header[offset + 1].toInt() and 0xFF) shl 16) or
-                ((header[offset + 2].toInt() and 0xFF) shl 8) or (header[offset + 3].toInt() and 0xFF)
+                    ((header[offset + 2].toInt() and 0xFF) shl 8) or (header[offset + 3].toInt() and 0xFF)
         val container = if (read >= 6 && header[0] == 'S'.code.toByte() && header[1] == 'C'.code.toByte()) {
             var version = beInt(2)
             if (version == 4 && read >= 10) version = beInt(6)

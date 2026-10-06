@@ -23,6 +23,8 @@ kotlin {
             dependencies {
                 implementation(compose.runtime)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+                // Нужен на этапе компиляции: SC2-загрузчик напрямую работает с FlatBuffers-классами из supercell-swf.
+                implementation("com.google.flatbuffers:flatbuffers-java:25.2.10")
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
