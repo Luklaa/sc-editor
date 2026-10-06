@@ -1,5 +1,6 @@
 package dev.donutquine.editor.assets
 
+import com.luklaaa.sceditor.AppLog
 import com.supercell.swf.ExternalMatrixBanks
 import com.supercell.swf.FBExports
 import com.supercell.swf.FBMovieClips
@@ -30,17 +31,17 @@ import java.nio.channels.FileChannel
  *
  * Логика повторяет SupercellSWFFlatLoader из supercell-swf, но тяжёлые данные живут вне кучи:
  *  - файл отображается в память (mmap), а не читается целиком в byte[] (да ещё и копируется);
- *  - основной zstd-контейнер распаковывается в direct-буфер (нативная память);
+ *  - основной zstd-контейнер распаковывается во временный файл, который тоже отображается через mmap
+ *    (обычный direct-буфер на Android живёт в куче Java и в лимит входит);
  *  - вложенные FlatBuffers-чанки - это срезы этого буфера, а не копии byte[];
  *  - данные текстур копируются в byte[] по одной и только на время декодирования.
- * На Android лимит кучи жёсткий (512 МБ с largeHeap), а нативная память им не ограничена.
  */
 object Sc2OffHeapLoader {
     private const val SC_MAGIC = 0x5343
     private val LE = ByteOrder.LITTLE_ENDIAN
 
     /** @return null, если это не SC2 (v5/v6) - тогда файл должна читать обычная библиотека. */
-    fun load(path: String, preferLowres: Boolean = false): SwfData? {
+    fun load(path: String, preferLowres: Boolean = false, onStage: (String) -> Unit = {}): SwfData? {
         val file = File(path)
         if (!file.isFile || file.length() < 8) return null
 
@@ -65,7 +66,8 @@ object Sc2OffHeapLoader {
         start.position(pos)
         val data = start.slice().order(LE) // все смещения ниже - относительно начала этих данных, как в библиотеке
 
-        return Parser(data, version, preferLowres).parse()
+        AppLog.i("SC2 off-heap loader: container v$version, file ${file.length() / 1024} KB, ${AppLog.memory()}")
+        return Parser(data, version, preferLowres, onStage).parse()
     }
 
     /** Вложенный FlatBuffers-чанк: длина + данные. Возвращаем срез без копирования и сдвигаем позицию. */
@@ -82,17 +84,27 @@ object Sc2OffHeapLoader {
     private class Parser(
         private val data: ByteBuffer,
         private val containerVersion: Int,
-        private val preferLowres: Boolean
+        private val preferLowres: Boolean,
+        private val onStage: (String) -> Unit
     ) {
+        private fun stage(name: String) {
+            AppLog.i("  SC2: $name (${AppLog.memory()})")
+            onStage("Parsing: $name")
+        }
+
         private lateinit var resources: FBResources
         private var matrixDataBuffers: Array<ByteBuffer?>? = null
 
         fun parse(): SwfData {
+            stage("metadata")
             val metadata = Metadata.getRootAsMetadata(nested(data))
 
-            // Основной контейнер - в нативной памяти.
-            val main = zstdDecompressFrameDirect(data, data.position()).order(LE)
+            stage("decompressing main container")
+            val main = zstdDecompressFrameMapped(data, data.position()).order(LE)
+            stage("main container decompressed, ${main.remaining() / 1024} KB")
             resources = FBResources.getRootAsFBResources(nested(main))
+
+            stage("matrix banks")
 
             val externalMatrixBanks = getExternalMatrixBanks(metadata)
             val matrixBanks = if (externalMatrixBanks == null) {
@@ -101,19 +113,27 @@ object Sc2OffHeapLoader {
                 deserializeExternalMatrixBanks(externalMatrixBanks, data.position())
             }
 
+            stage("exports")
             val exports = deserializeExports(nested(main))
+            stage("text fields")
             val textFields = deserializeTextFields(nested(main))
+            stage("shapes")
             val shapes = deserializeShapes(nested(main))
-            val movieClips = deserializeMovieClips(nested(main))
+            stage("movie clips")
+            val movieClips = FBMovieClips.getRootAsFBMovieClips(nested(main))
+            val movieClipCount = movieClips.clipsLength().toInt()
+            stage("modifiers")
             val modifiers = deserializeModifiers(nested(main))
             val textureSets = FBTextureSets.getRootAsFBTextureSets(nested(main))
+            stage("done: ${shapes.size} shapes, $movieClipCount movie clips, ${textFields.size} text fields, ${textureSets.textureSetsLength()} textures")
 
             return SwfData(
                 containerVersion = containerVersion,
                 textureCount = textureSets.textureSetsLength().toInt(),
                 openTexture = { index -> openTexture(textureSets, index) },
                 shapes = shapes,
-                movieClips = movieClips,
+                movieClipCount = movieClipCount,
+                movieClipAt = { index -> createMovieClip(movieClips, index) },
                 textFields = textFields,
                 exports = exports,
                 movieClipModifiers = modifiers,
@@ -169,16 +189,11 @@ object Sc2OffHeapLoader {
             return result
         }
 
-        private fun deserializeMovieClips(chunk: ByteBuffer): List<MovieClipOriginal> {
-            val fb = FBMovieClips.getRootAsFBMovieClips(chunk)
-            val result = ArrayList<MovieClipOriginal>(fb.clipsLength().toInt())
-            val buffers = matrixDataBuffers
-            for (i in 0 until fb.clipsLength().toInt()) {
-                val clip = fb.clips(i)
-                val frameData = buffers?.get(clip.matrixBankIndex().toInt())
-                result.add(MovieClipOriginal(clip, resources, frameData))
-            }
-            return result
+        /** Мувиклип создаётся по запросу и не хранится: так в куче нет одновременно всех клипов файла. */
+        private fun createMovieClip(clips: FBMovieClips, index: Int): MovieClipOriginal {
+            val clip = clips.clips(index)
+            val frameData = matrixDataBuffers?.get(clip.matrixBankIndex().toInt())
+            return MovieClipOriginal(clip, resources, frameData)
         }
 
         private fun deserializeShapes(chunk: ByteBuffer): List<ShapeOriginal> {
@@ -276,7 +291,8 @@ object Sc2OffHeapLoader {
                 val totalCount = maxOf(uncompressedCount, blockCount * ScCompressedMatrixBank.BLOCK_SIZE)
                 val bank = ScMatrixBank(totalCount, colorCount)
 
-                val buffer = zstdDecompressFrameDirect(data, matrixBankDataPosition + eb.offset().toInt()).order(LE)
+                if (i % 8 == 0) stage("matrix bank ${i + 1}/$count")
+                val buffer = zstdDecompressFrameMapped(data, matrixBankDataPosition + eb.offset().toInt()).order(LE)
 
                 for (j in 0 until floatCount) {
                     val a = buffer.getFloat()

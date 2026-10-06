@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.luklaaa.sceditor.ui.LogsDialog
 import com.luklaaa.sceditor.ui.ThemeMode
 
 class MainActivity : ComponentActivity() {
@@ -51,12 +52,14 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setupFullscreenWindow()
         enterImmersive()
+        AppLog.init(java.io.File(filesDir, "app.log"))
         AndroidFilePicker.init(this)
         setContent {
             var triggerOpenFile by remember { mutableStateOf(false) }
 
             var menuOpen by remember { mutableStateOf(false) }
             var showSettings by remember { mutableStateOf(false) }
+            var showLogs by remember { mutableStateOf(false) }
             var menuOnRight by remember { mutableStateOf(prefs.getBoolean(KEY_MENU_ON_RIGHT, false)) }
             var themeMode by remember { mutableStateOf(loadThemeMode()) }
 
@@ -64,6 +67,7 @@ class MainActivity : ComponentActivity() {
             AppTheme(mode = themeMode) {
                 BackHandler {
                     when {
+                        showLogs -> showLogs = false
                         showSettings -> showSettings = false
                         menuOpen -> menuOpen = false
                         else -> finish()
@@ -155,11 +159,20 @@ class MainActivity : ComponentActivity() {
                                         Text(label)
                                     }
                                 }
+                                Spacer(Modifier.height(16.dp))
+                                TextButton(onClick = { showLogs = true }) { Text("Logs") }
                             }
                         },
                         containerColor = MaterialTheme.colorScheme.background,
                         textContentColor = MaterialTheme.colorScheme.onBackground,
                         confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } }
+                    )
+                }
+
+                if (showLogs) {
+                    LogsDialog(
+                        onDismiss = { showLogs = false },
+                        extra = { HideSystemBarsInDialog() }
                     )
                 }
             }

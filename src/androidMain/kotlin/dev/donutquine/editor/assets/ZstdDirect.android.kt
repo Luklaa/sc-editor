@@ -1,16 +1,16 @@
 package dev.donutquine.editor.assets
 
 import com.github.luben.zstd.Zstd
+import com.github.luben.zstd.ZstdInputStream
+import java.io.InputStream
 import java.nio.ByteBuffer
 
-actual fun zstdDecompressFrameDirect(source: ByteBuffer, offset: Int): ByteBuffer {
+actual fun zstdFrameCompressedSize(source: ByteBuffer, offset: Int): Int {
     val view = source.duplicate()
     view.position(offset)
-    val frameSize = Zstd.findFrameCompressedSize(view)
-    check(frameSize > 0) { "Broken zstd frame at offset $offset" }
-    view.limit(offset + frameSize.toInt())
-    @Suppress("DEPRECATION")
-    val originalSize = Zstd.decompressedSize(view)
-    check(originalSize > 0 && originalSize <= Int.MAX_VALUE) { "Unknown zstd frame size at offset $offset" }
-    return Zstd.decompress(view, originalSize.toInt())
+    val size = Zstd.findFrameCompressedSize(view)
+    check(size > 0 && size <= Int.MAX_VALUE) { "Broken zstd frame at offset $offset" }
+    return size.toInt()
 }
+
+actual fun zstdInputStream(input: InputStream): InputStream = ZstdInputStream(input)

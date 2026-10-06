@@ -30,7 +30,9 @@ class SwfData(
     val textureCount: Int,
     val openTexture: (Int) -> TextureSource,
     val shapes: List<ShapeOriginal>?,
-    val movieClips: List<MovieClipOriginal>?,
+    /** Мувиклипы отдаём по одному: у больших файлов (ui.sc) их объекты в библиотеке занимают сотни МБ. */
+    val movieClipCount: Int,
+    val movieClipAt: (Int) -> MovieClipOriginal,
     val textFields: List<TextFieldOriginal>?,
     val exports: List<Export>?,
     val movieClipModifiers: List<MovieClipModifierOriginal>?,
@@ -40,6 +42,7 @@ class SwfData(
         /** Обёртка над объектом библиотеки (SC1 и всё, что не умеет наш загрузчик). */
         fun fromLibrary(swf: SupercellSWF): SwfData {
             val textures = try { swf.textures } catch (e: NullPointerException) { null } ?: emptyList()
+            val clips = nullIfNpe { swf.movieClips } ?: emptyList()
             return SwfData(
                 containerVersion = swf.containerVersion,
                 textureCount = textures.size,
@@ -55,7 +58,8 @@ class SwfData(
                     )
                 },
                 shapes = nullIfNpe { swf.shapes },
-                movieClips = nullIfNpe { swf.movieClips },
+                movieClipCount = clips.size,
+                movieClipAt = { i -> clips[i] },
                 textFields = nullIfNpe { swf.textFields },
                 exports = nullIfNpe { swf.exports },
                 movieClipModifiers = nullIfNpe { swf.movieClipModifiers },

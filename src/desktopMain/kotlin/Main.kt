@@ -1,4 +1,8 @@
 import androidx.compose.runtime.*
+import com.luklaaa.sceditor.AppLog
+import com.luklaaa.sceditor.ui.AppTheme
+import com.luklaaa.sceditor.ui.LogsDialog
+import com.luklaaa.sceditor.ui.ThemeMode
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -11,6 +15,9 @@ import java.awt.Color
 import java.awt.Dimension
 
 fun main() = application {
+    LaunchedEffect(Unit) {
+        AppLog.init(java.io.File(java.lang.System.getProperty("user.home"), ".sc-editor/app.log"))
+    }
     FlatLightLaf.setup()
 
     if (SystemInfo.isWindows_10_orLater) {
@@ -40,6 +47,7 @@ fun main() = application {
     var triggerOpenFile by remember { mutableStateOf(false) }
     var triggerCloseFile by remember { mutableStateOf(false) }
     var triggerCloseAllFiles by remember { mutableStateOf(false) }
+    var showLogs by remember { mutableStateOf(false) }
 
     Window(
         onCloseRequest = ::exitApplication,
@@ -77,13 +85,19 @@ fun main() = application {
             menuBar.add(JMenu("Edit"))
             menuBar.add(JMenu("View"))
             menuBar.add(JMenu("Options"))
-            menuBar.add(JMenu("Help"))
+            val helpMenu = JMenu("Help")
+            helpMenu.add(JMenuItem("Logs").apply { addActionListener { showLogs = true } })
+            menuBar.add(helpMenu)
 
             window.jMenuBar = menuBar
 
             onDispose {
                 window.jMenuBar = null
             }
+        }
+
+        if (showLogs) {
+            AppTheme(ThemeMode.LIGHT) { LogsDialog(onDismiss = { showLogs = false }) }
         }
 
         App(

@@ -1,4 +1,5 @@
 import androidx.compose.ui.graphics.ImageBitmap
+import com.luklaaa.sceditor.AppLog
 import dev.donutquine.editor.assets.Sc2OffHeapLoader
 import dev.donutquine.editor.assets.SupercellSWFAssetFileLoader
 import dev.donutquine.editor.assets.SwfData
@@ -46,13 +47,27 @@ fun loadTab(
     val fileName = path.substringAfterLast('\\').substringAfterLast('/')
     // Запоминаем, на каком этапе мы были - чтобы при нехватке памяти понять, что именно её съело.
     var stage = "starting"
-    val tracked: (String) -> Unit = { stage = it; onProgress(it) }
+    val tracked: (String) -> Unit = {
+        stage = it
+        AppLog.i("  $it (${AppLog.memory()})")
+        onProgress(it)
+    }
+    // Собираем мусор перед загрузкой: так в логе виден реальный объём, занятый уже открытыми файлами,
+    // а не вместе с недособранным мусором.
+    System.gc()
+    val startedAt = System.currentTimeMillis()
+    val files = listOf(path, path.dropLast(3) + "_tex.sc").distinct().mapNotNull { describeScFile(it) }.joinToString("; ")
+    AppLog.i("Opening $fileName${if (externalTexture != null) " (+ external texture ${externalTexture.expectedName})" else ""} | $files | ${AppLog.memory()}")
     return try {
-        LoadOutcome.Loaded(buildTab(path, fileName, externalTexture, tracked))
+        val tab = buildTab(path, fileName, externalTexture, tracked)
+        AppLog.i("Opened $fileName in ${System.currentTimeMillis() - startedAt} ms | ${AppLog.memory()}")
+        LoadOutcome.Loaded(tab)
     } catch (e: TextureFileMissingException) {
+        AppLog.i("$fileName needs external texture file: ${e.expectedName}")
         LoadOutcome.NeedsTexture(e.expectedName)
     } catch (e: OutOfMemoryError) {
         e.printStackTrace()
+        AppLog.e("OUT OF MEMORY while opening $fileName, stopped at: $stage | ${AppLog.memory()} | ${e.message}", e)
         val limitMb = Runtime.getRuntime().maxMemory() / (1024 * 1024)
         val details = listOf(path, path.dropLast(3) + "_tex.sc")
             .distinct()
@@ -64,9 +79,11 @@ fun loadTab(
         )
     } catch (e: StackOverflowError) {
         e.printStackTrace()
+        AppLog.e("Stack overflow while opening $fileName, stopped at: $stage", e)
         LoadOutcome.Failed("Failed to open $fileName (file structure is too deep)")
     } catch (e: Throwable) {
         e.printStackTrace()
+        AppLog.e("Failed to open $fileName, stopped at: $stage", e)
         val reason = (e.cause?.message ?: e.message)?.lineSequence()?.firstOrNull()?.take(160)
         LoadOutcome.Failed("Failed to open $fileName" + if (reason.isNullOrBlank()) "" else ": $reason")
     }
@@ -96,16 +113,19 @@ suspend fun loadTabOnLargeStack(
  * SC2 (v5/v6) читаем своим загрузчиком, который держит тяжёлые данные в нативной памяти, а не в куче Java.
  * Всё остальное (SC1) и любой сбой нашего загрузчика - через обычную библиотеку, как раньше.
  */
-private fun loadSwfData(path: String, externalTexture: ExternalTexture?): SwfData {
+private fun loadSwfData(path: String, externalTexture: ExternalTexture?, onStage: (String) -> Unit): SwfData {
     if (externalTexture == null) {
         try {
-            Sc2OffHeapLoader.load(path)?.let { return it }
+            Sc2OffHeapLoader.load(path, false, onStage)?.let { return it }
+            AppLog.i("Not an SC2 container - using the library loader")
         } catch (e: OutOfMemoryError) {
             throw e
         } catch (e: Throwable) {
             e.printStackTrace()
+            AppLog.e("SC2 off-heap loader failed, falling back to the library loader (${AppLog.memory()})", e)
         }
     }
+    onStage("Parsing (library loader)")
     val swf = if (externalTexture != null) {
         SupercellSWFAssetFileLoader.loadWithTexture(path, externalTexture.path, externalTexture.expectedName)
     } else {
@@ -166,14 +186,14 @@ private fun buildTab(
         }
     } else if (path.endsWith(".sc", ignoreCase = true)) {
         onProgress("Parsing $fileName...")
-        val swf = loadSwfData(path, externalTexture)
+        val swf = loadSwfData(path, externalTexture, onProgress)
         fun <T> safeList(block: () -> List<T>?): List<T> =
             try { block() ?: emptyList() } catch (e: NullPointerException) { emptyList() }
 
         containerVersion = swf.containerVersion
         val tCount = swf.textureCount
         val sCount = safeList { swf.shapes }.size
-        val mcCount = safeList { swf.movieClips }.size
+        val mcCount = swf.movieClipCount
         val exportsCount = safeList { swf.exports }.size
         val tfCount = safeList { swf.textFields }.size
 
@@ -189,6 +209,7 @@ private fun buildTab(
                 decodeTextureToBitmap(tex.width, tex.height, tex.pixels, tex.ktxData, typeStr)
             } catch (e: Throwable) {
                 e.printStackTrace()
+                AppLog.e("Texture $i (${tex.width}x${tex.height}, $typeStr) failed to decode", e)
                 null
             }
 
@@ -203,28 +224,17 @@ private fun buildTab(
         // SupercellSWF.loadSc1(): movieClip.setExportName(export.name())).
         // Поэтому здесь мы НЕ создаём отдельные ScObjectItem с типом "Export" —
         // это давало дублирующиеся строки с тем же id, что и MovieClip ниже.
-        // В ui.sc и подобных файлах десятки тысяч мувиклипов, и многие кадры повторяют одни и те же
-        // (child, matrix, colorTransform). Элементы неизменяемые, поэтому одинаковые храним одним объектом.
-        val elementCache = HashMap<Long, ScMovieClipFrameElementItem>()
-        fun internElement(child: Int, matrix: Int, color: Int): ScMovieClipFrameElementItem {
-            if (child !in 0..0xFFFFF || matrix !in 0..0xFFFFF || color !in 0..0xFFFFF) {
-                return ScMovieClipFrameElementItem(child, matrix, color)
-            }
-            val key = (child.toLong() shl 40) or (matrix.toLong() shl 20) or color.toLong()
-            return elementCache.getOrPut(key) { ScMovieClipFrameElementItem(child, matrix, color) }
-        }
-
-        safeList { swf.movieClips }.forEachIndexed { mcIndex, mc ->
+        for (mcIndex in 0 until mcCount) {
             if (mcIndex % 500 == 0) onProgress("Reading movie clips $mcIndex/$mcCount...")
+            // Объект библиотеки живёт только на время этой итерации - дальше остаётся наша компактная копия.
+            val mc = swf.movieClipAt(mcIndex)
             val mcChildren = mc.children.map { child ->
                 ScMovieClipChildItem(id = child.id(), blend = child.blend(), name = child.name())
             }
             val mcFrames = mc.frames.map { frame ->
                 ScMovieClipFrameItem(
                     label = frame.label,
-                    elements = if (frame.elements.isEmpty()) emptyList() else frame.elements.map { el ->
-                        internElement(el.childIndex(), el.matrixIndex(), el.colorTransformIndex())
-                    }
+                    elements = packElements(frame.elements)
                 )
             }
             objectsList.add(
@@ -344,4 +354,31 @@ private fun describeScFile(path: String): String? = try {
     }
 } catch (e: Throwable) {
     null
+}
+
+/**
+ * Элементы кадра, упакованные в IntArray (3 числа на элемент). В больших файлах их миллионы:
+ * отдельный объект на каждый стоит ~24 байта плюс ссылка, упакованный вариант - 12 байт.
+ * Для остального кода это обычный List, объекты создаются при обращении.
+ */
+private class PackedElementList(private val data: IntArray) : AbstractList<ScMovieClipFrameElementItem>() {
+    override val size: Int get() = data.size / 3
+
+    override fun get(index: Int): ScMovieClipFrameElementItem {
+        if (index < 0 || index >= size) throw IndexOutOfBoundsException("Index: $index, Size: $size")
+        val base = index * 3
+        return ScMovieClipFrameElementItem(data[base], data[base + 1], data[base + 2])
+    }
+}
+
+private fun packElements(elements: List<dev.donutquine.swf.movieclips.MovieClipFrameElement>?): List<ScMovieClipFrameElementItem> {
+    if (elements.isNullOrEmpty()) return emptyList()
+    val data = IntArray(elements.size * 3)
+    var i = 0
+    for (el in elements) {
+        data[i++] = el.childIndex()
+        data[i++] = el.matrixIndex()
+        data[i++] = el.colorTransformIndex()
+    }
+    return PackedElementList(data)
 }

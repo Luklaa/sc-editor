@@ -1,6 +1,7 @@
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
+import com.luklaaa.sceditor.AppLog
 import com.luklaaa.sceditor.ui.AppTheme
 import com.luklaaa.sceditor.ui.ThemeMode
 import androidx.compose.runtime.*
@@ -173,7 +174,13 @@ fun App(
                 activeTabIndex = openedTabs.size - 1
                 toast.dismiss()
             }
-            is LoadOutcome.Failed -> toast.show(outcome.message)
+            is LoadOutcome.Failed -> {
+                AppLog.w("Open failed: ${outcome.message}")
+                val tip = if (outcome.message.startsWith("Not enough memory") && openedTabs.isNotEmpty())
+                    "\nTip: close other open files to free memory and try again."
+                else ""
+                toast.show(outcome.message + tip + "\n(details: Logs)")
+            }
             is LoadOutcome.NeedsTexture -> toast.show("Texture file ${outcome.expectedName} doesn't match this .sc")
         }
     }
@@ -210,6 +217,7 @@ fun App(
 
     val openFileLambda = {
         openFilePicker("Select .sc file (if it has _tex.sc, select both files)", true) { paths ->
+            AppLog.i("File picker returned: ${if (paths.isEmpty()) "nothing" else paths.joinToString { fileNameOf(it) }}")
             if (paths.isNotEmpty()) {
                 val main = paths.firstOrNull { !it.isTextureFile() }
                 val texture = paths.firstOrNull { it.isTextureFile() }
