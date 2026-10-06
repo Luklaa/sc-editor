@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import com.luklaaa.sceditor.ui.AppTheme
-import androidx.compose.material3.AlertDialogDefaults.containerColor
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,14 +53,22 @@ class MainActivity : ComponentActivity() {
         enterImmersive()
         AppLog.init(java.io.File(filesDir, "app.log"))
         AndroidFilePicker.init(this)
+
         setContent {
             var triggerOpenFile by remember { mutableStateOf(false) }
 
             var menuOpen by remember { mutableStateOf(false) }
             var showSettings by remember { mutableStateOf(false) }
             var showLogs by remember { mutableStateOf(false) }
-            var menuOnRight by remember { mutableStateOf(prefs.getBoolean(KEY_MENU_ON_RIGHT, false)) }
+            var menuOnRight by remember {
+                mutableStateOf(prefs.getBoolean(KEY_MENU_ON_RIGHT, false))
+            }
             var themeMode by remember { mutableStateOf(loadThemeMode()) }
+
+            // Показывать таймлайн даже у объектов с одним кадром.
+            var ShowTimeLine by remember {
+                mutableStateOf(prefs.getBoolean(KEY_ALWAYS_TIMELINE, false))
+            }
 
             // Назад: сначала закрываем настройки / бургер-меню, потом выходим.
             AppTheme(mode = themeMode) {
@@ -75,7 +82,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Отступы по бокам под вырез камеры (в горизонтали вырез слева/справа).
-                val cutoutInsets = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                val cutoutInsets = Modifier.windowInsetsPadding(
+                    WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)
+                )
 
                 App(
                     onTitleChanged = {},
@@ -92,13 +101,21 @@ class MainActivity : ComponentActivity() {
                     onMenuOpenChange = { menuOpen = it },
                     contentInsets = cutoutInsets,
                     themeMode = themeMode,
+                    showTimeline = ShowTimeLine,
                     topBar = {
-                        val shift = rememberCutoutIconShift(barHeight = 48.dp, iconZone = 60.dp)
+                        val shift = rememberCutoutIconShift(
+                            barHeight = 48.dp,
+                            iconZone = 60.dp
+                        )
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.secondary)
-                                .padding(start = 4.dp + shift.first, end = 4.dp + shift.second),
+                                .padding(
+                                    start = 4.dp + shift.first,
+                                    end = 4.dp + shift.second
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(onClick = { triggerOpenFile = true }) {
@@ -108,7 +125,9 @@ class MainActivity : ComponentActivity() {
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
+
                             Spacer(Modifier.weight(1f))
+
                             IconButton(onClick = { showSettings = true }) {
                                 Icon(
                                     Icons.Filled.Settings,
@@ -123,25 +142,58 @@ class MainActivity : ComponentActivity() {
                 if (showSettings) {
                     AlertDialog(
                         onDismissRequest = { showSettings = false },
-                        title = { Text("Settings") },
+                        title = { Text("ScEditor 1.3.8\nSettings") },
+
                         text = {
                             HideSystemBarsInDialog()
+
                             Column {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Burger menu side", modifier = Modifier.weight(1f))
+                                    Text(
+                                        "Burger menu side",
+                                        modifier = Modifier.weight(1f)
+                                    )
+
                                     Switch(
                                         checked = menuOnRight,
                                         onCheckedChange = { checked ->
                                             menuOnRight = checked
-                                            prefs.edit().putBoolean(KEY_MENU_ON_RIGHT, checked).apply()
+                                            prefs.edit()
+                                                .putBoolean(KEY_MENU_ON_RIGHT, checked)
+                                                .apply()
                                         }
                                     )
                                 }
+
                                 Spacer(Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Show timeline",
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    Switch(
+                                        checked = ShowTimeLine,
+                                        onCheckedChange = { checked ->
+                                            ShowTimeLine = checked
+                                            prefs.edit()
+                                                .putBoolean(KEY_ALWAYS_TIMELINE, checked)
+                                                .apply()
+                                        }
+                                    )
+                                }
+
+                                Spacer(Modifier.height(16.dp))
+
                                 Text("Color theme")
+
                                 listOf(
                                     ThemeMode.SYSTEM to "System",
                                     ThemeMode.LIGHT to "Light",
@@ -149,23 +201,43 @@ class MainActivity : ComponentActivity() {
                                 ).forEach { (mode, label) ->
                                     val select = {
                                         themeMode = mode
-                                        prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
+                                        prefs.edit()
+                                            .putString(KEY_THEME_MODE, mode.name)
+                                            .apply()
                                     }
+
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().clickable(onClick = select),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(onClick = select),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        RadioButton(selected = themeMode == mode, onClick = select)
+                                        RadioButton(
+                                            selected = themeMode == mode,
+                                            onClick = select
+                                        )
                                         Text(label)
                                     }
                                 }
-                                Spacer(Modifier.height(16.dp))
-                                TextButton(onClick = { showLogs = true }) { Text("Logs") }
                             }
                         },
                         containerColor = MaterialTheme.colorScheme.background,
                         textContentColor = MaterialTheme.colorScheme.onBackground,
-                        confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } }
+                        confirmButton = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                TextButton(onClick = {
+                                    showLogs = true
+                                    showSettings = false }) {
+                                    Text("Logs")
+                                }
+                                TextButton(onClick = { showSettings = false }) {
+                                    Text("Close")
+                                }
+                            }
+                        }
                     )
                 }
 
@@ -178,6 +250,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) enterImmersive()
@@ -199,36 +272,52 @@ class MainActivity : ComponentActivity() {
     private fun setupFullscreenWindow() {
         window.statusBarColor = 0
         window.navigationBarColor = 0
+
         if (Build.VERSION.SDK_INT >= 29) {
             // Без этого на жестовой навигации система рисует полупрозрачную плашку под жестовой полосой.
             window.isNavigationBarContrastEnforced = false
             window.isStatusBarContrastEnforced = false
         }
-        // Рисуем под вырезом камеры в любой ориентации (ALWAYS - с Android 11, SHORT_EDGES - с Android 9).
+
+        // Рисуем под вырезом камеры в любой ориентации
+        // (ALWAYS - с Android 11, SHORT_EDGES - с Android 9).
         val cutoutMode = when {
-            Build.VERSION.SDK_INT >= 30 -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            Build.VERSION.SDK_INT >= 28 -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            Build.VERSION.SDK_INT >= 30 ->
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+
+            Build.VERSION.SDK_INT >= 28 ->
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+
             else -> null
         }
+
         if (cutoutMode != null) {
-            window.attributes = window.attributes.also { it.layoutInDisplayCutoutMode = cutoutMode }
+            window.attributes = window.attributes.also {
+                it.layoutInDisplayCutoutMode = cutoutMode
+            }
         }
     }
 
     private fun enterImmersive() {
         val c = WindowInsetsControllerCompat(window, window.decorView)
-        c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        c.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         c.hide(WindowInsetsCompat.Type.systemBars())
     }
 
-    // LIGHT по умолчанию: цвета интерфейса пока не переведены на тему, тёмная выглядит неполноценно.
+    // LIGHT по умолчанию: цвета интерфейса пока не переведены на тему,
+    // тёмная выглядит неполноценно.
     private fun loadThemeMode(): ThemeMode =
-        runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME_MODE, null) ?: "") }
-            .getOrDefault(ThemeMode.LIGHT)
+        runCatching {
+            ThemeMode.valueOf(
+                prefs.getString(KEY_THEME_MODE, null) ?: ""
+            )
+        }.getOrDefault(ThemeMode.LIGHT)
 
     private companion object {
         const val KEY_MENU_ON_RIGHT = "menu_on_right"
         const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_ALWAYS_TIMELINE = "always_show_timeline"
     }
 }
 
@@ -236,46 +325,76 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun HideSystemBarsInDialog() {
     val view = LocalView.current
+
     SideEffect {
-        val dialogWindow = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        val dialogWindow =
+            (view.parent as? DialogWindowProvider)?.window
+                ?: return@SideEffect
+
         WindowCompat.setDecorFitsSystemWindows(dialogWindow, false)
-        WindowInsetsControllerCompat(dialogWindow, dialogWindow.decorView).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        WindowInsetsControllerCompat(
+            dialogWindow,
+            dialogWindow.decorView
+        ).apply {
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
     }
 }
 
-/**
- * Насколько сдвинуть левую/правую иконки верхней панели, чтобы они не попали под вырез камеры.
- * Берём реальные прямоугольники выреза: если вырез задевает полосу панели (barHeight) в зоне иконки
- * (iconZone от края), иконка сдвигается за его границу. Центральная «чёлка» иконки не трогает.
- * Работает в любой ориентации: в ландшафте вырез слева/справа - сдвиг идёт по тому же правилу.
- */
 @Composable
-private fun rememberCutoutIconShift(barHeight: Dp, iconZone: Dp): Pair<Dp, Dp> {
+private fun rememberCutoutIconShift(
+    barHeight: Dp,
+    iconZone: Dp
+): Pair<Dp, Dp> {
     val view = LocalView.current
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val orientation = LocalConfiguration.current.orientation
     val cutout = WindowInsets.displayCutout
-    // Ключ: при смене выреза/ориентации пересчитываем (чтение инсетов подписывает на их изменение).
+
+    // Ключ: при смене выреза/ориентации пересчитываем
+    // (чтение инсетов подписывает на их изменение).
     val key = listOf(
-        cutout.getLeft(density, layoutDirection), cutout.getTop(density),
-        cutout.getRight(density, layoutDirection), cutout.getBottom(density), orientation
+        cutout.getLeft(density, layoutDirection),
+        cutout.getTop(density),
+        cutout.getRight(density, layoutDirection),
+        cutout.getBottom(density),
+        orientation
     )
+
     return remember(key) {
-        val rects = ViewCompat.getRootWindowInsets(view)?.displayCutout?.boundingRects.orEmpty()
+        val rects = ViewCompat
+            .getRootWindowInsets(view)
+            ?.displayCutout
+            ?.boundingRects
+            .orEmpty()
+
         val width = view.width
         val bandPx = with(density) { barHeight.roundToPx() }
         val zonePx = with(density) { iconZone.roundToPx() }
+
         var startPx = 0
         var endPx = 0
+
         for (r in rects) {
-            if (r.top >= bandPx || r.bottom <= 0) continue // вырез не заходит на полосу панели
-            if (r.left < zonePx) startPx = max(startPx, r.right)
-            if (width > 0 && r.right > width - zonePx) endPx = max(endPx, width - r.left)
+            if (r.top >= bandPx || r.bottom <= 0) continue
+
+            // Вырез касается левой зоны.
+            if (r.left < zonePx) {
+                startPx = max(startPx, r.right)
+            }
+
+            // Вырез касается правой зоны.
+            if (width > 0 && r.right > width - zonePx) {
+                endPx = max(endPx, width - r.left)
+            }
         }
-        with(density) { startPx.toDp() to endPx.toDp() }
+
+        with(density) {
+            startPx.toDp() to endPx.toDp()
+        }
     }
 }

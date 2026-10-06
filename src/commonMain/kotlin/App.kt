@@ -187,10 +187,15 @@ fun App(
     // Тема приложения. По умолчанию LIGHT - так UI выглядит как раньше (цвета ещё не переведены на тему).
     themeMode: ThemeMode = ThemeMode.LIGHT,
     // Необязательная верхняя панель (на Android - кнопки Open / Settings); рисуется над рабочей областью.
-    topBar: (@Composable () -> Unit)? = null
+    topBar: (@Composable () -> Unit)? = null,
+    // Показывать таймлайн даже у объекта с одним кадром.
+    showTimeline: Boolean = false
 ) {
     val openedTabs = remember { mutableStateListOf<OpenedTab>() }
     var activeTabIndex by remember { mutableStateOf(-1) }
+    // Панель с открытыми файлами свёрнута (только компактный режим): вьюпорт занимает её место.
+    var tabsCollapsed by remember { mutableStateOf(false) }
+    LaunchedEffect(openedTabs.isEmpty()) { if (openedTabs.isEmpty()) tabsCollapsed = false }
 
     // Динамическая ширина сайдбара
     var sidebarWidth by remember { mutableStateOf(280.dp) }
@@ -201,7 +206,7 @@ fun App(
         if (activeTab != null) {
             onTitleChanged(activeTab.name)
         } else {
-            onTitleChanged("SC Editor 1.6.3")
+            onTitleChanged("SC Editor 1.6.5")
         }
     }
 
@@ -262,7 +267,7 @@ fun App(
     }
 
     val openFileLambda = {
-        openFilePicker("Select .sc file (if it has _tex.sc, select both files)", true) { paths ->
+        openFilePicker("Select .sc file\n(if it has _tex.sc, select both files)", true) { paths ->
             AppLog.i("File picker returned: ${if (paths.isEmpty()) "nothing" else paths.joinToString { fileNameOf(it) }}")
             if (paths.isNotEmpty()) {
                 val main = paths.firstOrNull { !it.isTextureFile() }
@@ -322,30 +327,49 @@ fun App(
                             // Вкладки открытых файлов (Tabs)
                             if (openedTabs.isNotEmpty()) {
                                 val showBurger = compactLayout && activeTab != null
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (showBurger && !menuOnRight) {
-                                        ui.BurgerButton(onClick = { onMenuOpenChange(true) })
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                    }
-                                    ui.GlassFileTabBar(
-                                        openedTabs = openedTabs,
-                                        activeTabIndex = activeTabIndex,
-                                        onTabSelect = { activeTabIndex = it },
-                                        onTabClose = { index ->
-                                            openedTabs.removeAt(index)
-                                            activeTabIndex = if (openedTabs.isEmpty()) -1 else openedTabs.size - 1
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    if (showBurger && menuOnRight) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = !(compactLayout && tabsCollapsed),
+                                    enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                                    exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                                ) {
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (showBurger && !menuOnRight) {
+                                                ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                            }
+// закоменчено потому что хуево выглядит и сделано
+
+//                                            if (compactLayout && !menuOnRight) {
+//                                                ui.TabsHandleButton(collapsed = false, onRight = false, onClick = { tabsCollapsed = true })
+//                                                Spacer(modifier = Modifier.width(8.dp))
+//                                            }
+                                            ui.GlassFileTabBar(
+                                                openedTabs = openedTabs,
+                                                activeTabIndex = activeTabIndex,
+                                                onTabSelect = { activeTabIndex = it },
+                                                onTabClose = { index ->
+                                                    openedTabs.removeAt(index)
+                                                    activeTabIndex = if (openedTabs.isEmpty()) -1 else openedTabs.size - 1
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
+// закоменчено потому что хуево выглядит и сделано
+
+//                                            if (compactLayout && menuOnRight) {
+//                                                Spacer(modifier = Modifier.width(8.dp))
+//                                                ui.TabsHandleButton(collapsed = false, onRight = true, onClick = { tabsCollapsed = true })
+//                                            }
+                                            if (showBurger && menuOnRight) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(12.dp))
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(12.dp))
                             }
 
-                            // Рабочее пространство: Сайдбар + Вьюпорт
                             Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                 if (activeTab != null && !compactLayout) {
                                     GlassSidebar(
@@ -362,11 +386,9 @@ fun App(
                                         modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                                     )
 
-                                    // Небольшой зазор между сайдбаром и вьюпортом
                                     Spacer(modifier = Modifier.width(6.dp))
                                 }
 
-                                // Центральный вьюпорт + плеер (если выбран MovieClip)
                                 Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                                     val selectedObj = if (activeTab != null && activeTab.activeObjectIndex in activeTab.objects.indices) {
                                         activeTab.objects[activeTab.activeObjectIndex]
@@ -379,17 +401,10 @@ fun App(
 
                                     val viewMode = activeTab?.viewMode ?: "OBJECT"
 
-                                    // viewMode переключается явно в onObjectSelected/onTextureSelected выше:
-                                    // раньше выбор текстуры не мог "перебить" ранее выбранный объект — вьюпорт
-                                    // жёстко приоритезировал object-рендер, даже когда пользователь кликал
-                                    // по текстуре во вкладке Textures. Теперь показ текстуры-атласа возможен
-                                    // только когда viewMode == "TEXTURE" (или объект вовсе не выбран).
                                     val isShapeSelected = viewMode == "OBJECT" && selectedObj?.type == "Shape" && selectedObj.shapeCommands.isNotEmpty()
                                     val isMovieClipSelected = viewMode == "OBJECT" && selectedObj?.type == "MovieClip" && selectedObj.mcFrames.isNotEmpty()
                                     val showTextureCanvas = !isShapeSelected && !isMovieClipSelected
 
-                                    // Плеер мувиклипа (текущий кадр + play/stop). Пересоздаётся при смене
-                                    // выбранного мувиклипа — см. key(movieClip.id) внутри rememberMovieClipController.
                                     val mcController = if (isMovieClipSelected && selectedObj != null) {
                                         rememberMovieClipController(selectedObj)
                                     } else null
@@ -439,7 +454,7 @@ fun App(
                                         modifier = Modifier.weight(1f).fillMaxWidth()
                                     )
 
-                                    if (isMovieClipSelected && selectedObj != null && mcController != null) {
+                                    if (isMovieClipSelected && selectedObj != null && mcController != null && showTimeline) {
                                         Spacer(modifier = Modifier.height(12.dp))
                                         GlassTimelinePanel(
                                             frameCount = selectedObj.mcFrames.size,
@@ -447,7 +462,7 @@ fun App(
                                             isPlaying = mcController.isPlaying,
                                             onFrameChange = { mcController.setFrame(it) },
                                             onTogglePlaying = { mcController.togglePlaying() },
-                                            modifier = Modifier.fillMaxWidth()
+                                            modifier = Modifier.fillMaxWidth(),
                                         )
                                     }
                                 }
@@ -455,6 +470,24 @@ fun App(
                         }
 
                     }
+// закоменчено потому что хуево выглядит и сделано
+                    // Панель с файлами свёрнута: кнопки (бургер + ручка) плавают поверх вьюпорта в углу выбранной стороны.
+//                    if (compactLayout && openedTabs.isNotEmpty() && tabsCollapsed) {
+//                        Row(
+//                            modifier = Modifier.align(if (menuOnRight) Alignment.TopEnd else Alignment.TopStart),
+//                            verticalAlignment = Alignment.CenterVertically,
+//                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+//                        ) {
+//                            if (menuOnRight) {
+//                                ui.TabsHandleButton(collapsed = true, onRight = true, onClick = { tabsCollapsed = false })
+//                                if (activeTab != null) ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+//                            } else {
+//                                if (activeTab != null) ui.BurgerButton(onClick = { onMenuOpenChange(true) })
+//                                ui.TabsHandleButton(collapsed = true, onRight = false, onClick = { tabsCollapsed = false })
+//                            }
+//                        }
+//                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

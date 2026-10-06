@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -42,7 +43,7 @@ fun GlassBox(
             modifier = Modifier
                 .fillMaxSize()
                 .border(width = 1.2.dp, brush = Brush.linearGradient(colors = listOf(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), MaterialTheme.colorScheme.surface.copy(alpha = 0.15f))), shape = shape)
-                .padding(contentPadding)
+                .padding(contentPadding),
         ) {
             content()
         }

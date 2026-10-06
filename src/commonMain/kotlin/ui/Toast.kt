@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,10 +49,10 @@ fun ToastHost(state: ToastState, modifier: Modifier = Modifier) {
     if (message != null) {
         Box(
             modifier = modifier
-                .background(Color(0xE61E293B), RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            Text(text = message.text, color = Color.White, fontSize = 13.sp)
+            Text(text = message.text, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         }
     }
 }

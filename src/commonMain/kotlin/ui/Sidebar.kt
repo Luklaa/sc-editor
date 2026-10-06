@@ -35,7 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.pointer.PointerIcon
+import com.luklaaa.sceditor.ui.AppThemeColors
 
 private data class SidebarListRow(
     val sectionTitle: String? = null,
@@ -118,12 +118,12 @@ fun GlassSidebar(
 ) {
     var activeBottomTab by remember { mutableStateOf("Objects") }
     var searchQuery by remember { mutableStateOf("") }
+    var isSearchPanelVisible by remember { mutableStateOf(false) }
 
     var sortColumn by remember { mutableStateOf("Name") }
     var sortAscending by remember { mutableStateOf(false) }
 
     val columnWidths = remember { mutableStateListOf(1.2f, 2.4f, 1.3f) }
-    var activeSearchColumn by remember { mutableStateOf<String?>(null) }
     var idQuery by remember { mutableStateOf("") }
     var nameQuery by remember { mutableStateOf("") }
     var typeQuery by remember { mutableStateOf("") }
@@ -132,12 +132,6 @@ fun GlassSidebar(
     val texturesListState = rememberLazyListState()
 
     val normalizedSearch = searchQuery.trim().lowercase()
-
-    LaunchedEffect(activeBottomTab) {
-        if (activeBottomTab != "Objects") {
-            activeSearchColumn = null
-        }
-    }
 
     val filteredAndSortedObjects = remember(
         openedTab.objects,
@@ -236,18 +230,28 @@ fun GlassSidebar(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(32.dp)
-                                .background(
-                                    Color.Black.copy(alpha = 0.05f),
-                                    RoundedCornerShape(10.dp)
+                                .height(35.dp)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
+                                    RoundedCornerShape(12.dp)
                                 )
-                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             listOf("Id", "Name", "Type").forEachIndexed { index, colName ->
 
+                                val isActive = sortColumn == colName
                                 val interactionSource = remember { MutableInteractionSource() }
                                 val isHovered by interactionSource.collectIsHoveredAsState()
+
+                                val shape = when (colName) {
+                                    "Id" -> RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp)
+                                    "Name" -> RoundedCornerShape(0.dp)
+                                    "Type" -> RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp)
+                                    else -> RoundedCornerShape(10.dp)
+                                }
 
                                 Box(
                                     modifier = Modifier
@@ -255,11 +259,15 @@ fun GlassSidebar(
                                         .fillMaxHeight(),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
-                                    Row(
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .padding(horizontal = 4.dp)
+                                            .height(35.dp)
                                             .hoverable(interactionSource)
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(shape)
+                                            .background(if (isActive) AppThemeColors.colors.accent.copy(alpha = 0.25f) else  Color.Transparent)
+                                            .border(1.dp, if (isActive) AppThemeColors.colors.accent.copy(alpha = 0.75f) else  Color.Transparent, shape)
                                             .clickable {
                                                 if (sortColumn == colName) {
                                                     sortAscending = !sortAscending
@@ -267,41 +275,48 @@ fun GlassSidebar(
                                                     sortColumn = colName
                                                     sortAscending = true
                                                 }
-                                            }
-                                            .padding(horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            },
+                                        contentAlignment = Alignment.CenterStart
                                     ) {
                                         Text(
-                                            (if (sortColumn == colName)
-                                                if (sortAscending) "▲ " else "▼ "
-                                            else "") + colName,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 11.sp,
+                                            (if (isActive)
+                                                if (sortAscending) " ▲ " else " ▼ "
+                                            else "  ") + colName,
+                                            color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                                            fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f).offset(y = (-2.5).dp)
                                         )
-
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(999.dp))
-                                                .clickable {
-                                                    activeSearchColumn =
-                                                        if (activeSearchColumn == colName) null else colName
-                                                }
-                                                .padding(0.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Search,
-                                                contentDescription = "Search",
-                                                tint = Color(0xFF3B82F6),
-                                                modifier = Modifier
-                                                    .size(14.dp)
-                                            )
-                                        }
                                     }
+//                                    Row(
+//                                        modifier = Modifier
+//                                            .fillMaxWidth()
+//                                            .hoverable(interactionSource)
+//                                            .clip(RoundedCornerShape(8.dp))
+//                                            .clickable {
+//                                                if (sortColumn == colName) {
+//                                                    sortAscending = !sortAscending
+//                                                } else {
+//                                                    sortColumn = colName
+//                                                    sortAscending = true
+//                                                }
+//                                            }
+//                                            .padding(horizontal = 4.dp),
+//                                        verticalAlignment = Alignment.CenterVertically
+//                                    ) {
+//                                        Text(
+//                                            (if (isActive)
+//                                                if (sortAscending) "▲ " else "▼ "
+//                                            else "") + colName,
+//                                            color = MaterialTheme.colorScheme.onSurface,
+//                                            fontSize = 11.sp,
+//                                            fontWeight = FontWeight.SemiBold,
+//                                            maxLines = 1,
+//                                            overflow = TextOverflow.Ellipsis,
+//                                            modifier = Modifier.weight(1f)
+//                                        )
+//                                    }
                                 }
 
                                 if (index < 2) {
@@ -327,12 +342,7 @@ fun GlassSidebar(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(
-                                            modifier = Modifier
-                                                .background(
-                                                    Color.Black.copy(alpha = 0.06f),
-                                                    RoundedCornerShape(6.dp)
-                                                )
-                                                .padding(horizontal = 3.dp, vertical = 4.dp),
+                                            modifier = Modifier.padding(horizontal = 3.dp, vertical = 6.dp),
                                             verticalArrangement = Arrangement.spacedBy(2.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
@@ -340,10 +350,7 @@ fun GlassSidebar(
                                                 Box(
                                                     modifier = Modifier
                                                         .size(2.dp)
-                                                        .background(
-                                                            Color.Black.copy(alpha = 1f),
-                                                            CircleShape
-                                                        )
+                                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), CircleShape)
                                                 )
                                             }
                                         }
@@ -353,7 +360,7 @@ fun GlassSidebar(
                         }
                     }
 
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 4.dp)) {
                         if (activeBottomTab == "Objects") {
                             if (objectRows.isEmpty()) {
                                 Box(
@@ -361,7 +368,7 @@ fun GlassSidebar(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "Нет объектов по запросу",
+                                        "No objects found",
                                         color = MaterialTheme.colorScheme.outline,
                                         fontSize = 12.sp
                                     )
@@ -392,21 +399,13 @@ fun GlassSidebar(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clip(RoundedCornerShape(8.dp))
-                                                    .background(
-                                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(
-                                                            alpha = 0.55f
-                                                        ) else Color.Transparent
-                                                    )
-                                                    .border(
-                                                        1.dp,
-                                                        if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                                        RoundedCornerShape(8.dp)
-                                                    )
+                                                    .background(if (isSelected) AppThemeColors.colors.accent.copy(alpha = 0.25f) else Color.Transparent)
+                                                    .border(1.dp, if (isSelected) AppThemeColors.colors.accent.copy(alpha = 0.75f) else Color.Transparent, RoundedCornerShape(8.dp))
                                                     .padding(vertical = 1.dp, horizontal = 6.dp)
                                             ) {
                                                 Box(
                                                     modifier = Modifier.weight(columnWidths[0])
-                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                                         .clickable { onObjectSelected(row.objectIndex) }
                                                         .padding(
                                                             vertical = 1.dp,
@@ -424,7 +423,7 @@ fun GlassSidebar(
                                                 }
                                                 Box(
                                                     modifier = Modifier.weight(columnWidths[1])
-                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .clip(RoundedCornerShape(0.dp))
                                                         .clickable { onObjectSelected(row.objectIndex) }
                                                         .padding(
                                                             vertical = 1.dp,
@@ -442,7 +441,7 @@ fun GlassSidebar(
                                                 }
                                                 Box(
                                                     modifier = Modifier.weight(columnWidths[2])
-                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                                         .clickable { onObjectSelected(row.objectIndex) }
                                                         .padding(
                                                             vertical = 1.dp,
@@ -499,7 +498,7 @@ fun GlassSidebar(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "Нет текстур по запросу",
+                                        "No textures found",
                                         color = MaterialTheme.colorScheme.outline,
                                         fontSize = 12.sp
                                     )
@@ -538,7 +537,8 @@ fun GlassSidebar(
                                     }
                                 }
                             }
-                        } else {
+                        }
+                        else {
                             val selectedObj =
                                 if (openedTab.activeObjectIndex in openedTab.objects.indices) {
                                     openedTab.objects[openedTab.activeObjectIndex]
@@ -557,50 +557,41 @@ fun GlassSidebar(
                         }
                     }
 
-                    if (activeBottomTab == "Objects" && activeSearchColumn != null) {
-                        val queryValue = when (activeSearchColumn) {
-                            "Id" -> idQuery
-                            "Name" -> nameQuery
-                            else -> typeQuery
-                        }
-                        Box(
+                    if (isSearchPanelVisible) {
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 6.dp)
                                 .height(36.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                                .border(1.dp, Color(0xFF93C5FD), RoundedCornerShape(10.dp))
+                                .border(1.dp, AppThemeColors.colors.accent.copy(alpha = 0.75f), RoundedCornerShape(10.dp))
                                 .padding(horizontal = 10.dp),
-                            contentAlignment = Alignment.CenterStart
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (queryValue.isEmpty()) {
-                                Text(
-                                    "Find in ${activeSearchColumn}...",
-                                    color = MaterialTheme.colorScheme.outlineVariant,
-                                    fontSize = 12.sp,
-                                    maxLines = 1
-                                )
-                            }
                             BasicTextField(
-                                value = queryValue,
-                                onValueChange = {
-                                    when (activeSearchColumn) {
-                                        "Id" -> idQuery = it
-                                        "Name" -> nameQuery = it
-                                        else -> typeQuery = it
-                                    }
-                                },
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
                                 textStyle = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface),
                                 singleLine = true,
                                 cursorBrush = SolidColor(Color(0xFF2563EB)),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.weight(1f),
+                                decorationBox = { innerTextField ->
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            "Search...",
+                                            color = MaterialTheme.colorScheme.outlineVariant,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    innerTextField()
+                                }
                             )
                         }
+                        Spacer(Modifier.height(6.dp))
                     }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(35.dp)
+                        modifier = Modifier
                             .fillMaxWidth()
                             .height(35.dp)
                             .clip(RoundedCornerShape(8.dp))
@@ -610,20 +601,29 @@ fun GlassSidebar(
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
                                 RoundedCornerShape(12.dp)
                             )
-                            .padding(2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         listOf("Objects", "Info", "Textures").forEach { tab ->
                             val isActive = activeBottomTab == tab
+
+                            val shape = when (tab) {
+                                "Objects" -> RoundedCornerShape(bottomStart = 10.dp, topStart = 10.dp)
+                                "Textures" -> RoundedCornerShape(bottomEnd = 0.dp)
+                                "Info" -> RoundedCornerShape(0.dp)
+                                else -> RoundedCornerShape(10.dp)
+                            }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isActive) Color.Black.copy(alpha = 0.1f) else Color.Transparent)
+                                    .padding(start = 4.dp)
+                                    .clip(shape)
+                                    .background(if (isActive) AppThemeColors.colors.accent.copy(alpha = 0.25f) else Color.Transparent)
+                                    .border(1.dp, if (isActive) AppThemeColors.colors.accent.copy(alpha = 0.75f) else Color.Transparent, shape)
                                     .clickable { activeBottomTab = tab }
                                     .padding(2.dp),
-                                contentAlignment = Alignment.TopCenter
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = tab,
@@ -633,18 +633,37 @@ fun GlassSidebar(
                                 )
                             }
                         }
+                        val searchShape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp)
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(end = 4.dp)
+                                .width(32.dp)
+                                .clip(searchShape)
+                                .clickable { isSearchPanelVisible = !isSearchPanelVisible }
+                                .background(if (isSearchPanelVisible) AppThemeColors.colors.accent.copy(alpha = 0.25f) else Color.Transparent)
+                                .border(1.dp, if (isSearchPanelVisible) AppThemeColors.colors.accent.copy(alpha = 0.75f) else Color.Transparent, searchShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = "Search",
+                                tint = AppThemeColors.colors.accent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            // Невидимый хендл ресайза на всю высоту сайдбара, у правого края —
-            // без фона и обводки, только курсор + три точки-индикатор.
             if (showResizeHandle) {
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .width(6.dp)
                     .fillMaxHeight()
+                    .border(1.dp, MaterialTheme.colorScheme.surface)
                     .pointerHoverIcon(resizeCursor())
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
@@ -662,7 +681,7 @@ fun GlassSidebar(
                         Box(
                             modifier = Modifier
                                 .size(2.dp)
-                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), CircleShape)
                         )
                     }
                 }

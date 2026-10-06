@@ -76,7 +76,7 @@ object Sc2OffHeapLoader {
     ) {
         private fun stage(name: String) {
             AppLog.i("  SC2: $name (${AppLog.memory()})")
-            onStage("Parsing: $name")
+            onStage("Decoding $name")
         }
 
         private lateinit var resources: FBResources

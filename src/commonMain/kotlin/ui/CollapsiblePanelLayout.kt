@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -18,10 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * Панель открытых файлов + превью. Превью занимает всё свободное место,
- * поэтому при сворачивании панели оно расширяется само.
- */
 @Composable
 fun CollapsiblePanelLayout(
     settings: UiSettings,
@@ -45,10 +43,10 @@ fun CollapsiblePanelLayout(
     @Composable
     fun Handle() {
         val icon = when {
-            side == PanelSide.LEFT && expanded -> Icons.Default.ChevronLeft
-            side == PanelSide.LEFT -> Icons.Default.ChevronRight
-            expanded -> Icons.Default.ChevronRight
-            else -> Icons.Default.ChevronLeft
+            side == PanelSide.LEFT && expanded -> Icons.Default.KeyboardArrowUp
+            side == PanelSide.LEFT -> Icons.Default.KeyboardArrowUp
+            expanded -> Icons.Default.KeyboardArrowUp
+            else -> Icons.Default.KeyboardArrowDown
         }
         Box(
             Modifier.fillMaxHeight().width(24.dp)

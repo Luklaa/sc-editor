@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.luklaaa.sceditor.ui.AppThemeColors
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -138,35 +139,38 @@ fun GlassFileTabBar(
                 Box(
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .width(IntrinsicSize.Min)
+                        .widthIn(max = 180.dp)
                         .heightIn(min = 40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.2f))
-                        .border(1.dp, if (isActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(15.dp))
+                        .background(if (isActive) AppThemeColors.colors.accent.copy(alpha = 0.25f) else Color.Transparent)
+                        .border(1.dp, if (isActive) AppThemeColors.colors.accent.copy(alpha = 0.75f) else AppThemeColors.colors.accent.copy(alpha = 0.3f), RoundedCornerShape(15.dp))
                         .clickable { onTabSelect(index) }
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.width(IntrinsicSize.Min),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
                             text = tab.name,
-                            modifier = Modifier.offset(y = (-3).dp),
+                            modifier = Modifier
+                                .weight(1f, fill = false),
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             softWrap = false,
-                            overflow = TextOverflow.Visible
+                            overflow = TextOverflow.Ellipsis
                         )
+
                         Box(
                             modifier = Modifier
                                 .size(22.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.35f))
+                                .background(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)
+                                )
                                 .clickable { onTabClose(index) },
                             contentAlignment = Alignment.Center
                         ) {

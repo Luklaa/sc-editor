@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.isAltPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
+import com.luklaaa.sceditor.ui.AppThemeColors
 
 // Чувствительность пана обычным/Shift+колесом (px за один "тик" колеса). Alt+колесо (zoom)
 // использует отдельный множитель 1.1f прямо в обработчике — см. GlassViewport.
@@ -37,8 +38,8 @@ private const val WHEEL_PAN_SENSITIVITY = 40f
 @Composable
 fun Modifier.checkerboard(
     cellSize: Dp = 10.dp,
-    colorLight: Color = MaterialTheme.colorScheme.errorContainer,
-    colorDark: Color = MaterialTheme.colorScheme.error,
+    colorLight: Color = AppThemeColors.colors.boardLight,
+    colorDark: Color = AppThemeColors.colors.boardDark,
     offsetX: Float = 0f,
     offsetY: Float = 0f
 ): Modifier = drawWithCache {
@@ -134,11 +135,6 @@ fun GlassViewport(
                                                 event.keyboardModifiers.isAltPressed -> {
                                                     val factor = if (delta < 0) 1.1f else 1f / 1.1f
                                                     val newZoom = (camera.zoom * factor).coerceIn(0.1f, 20f)
-                                                    // Зум "к курсору": пересчитываем pan так, чтобы точка контента
-                                                    // ПОД курсором осталась на том же месте экрана — иначе
-                                                    // graphicsLayer масштабирует вокруг центра Box (transformOrigin
-                                                    // по умолчанию), и при пане в сторону зум визуально "тянет"
-                                                    // к центру текстуры/сцены, а не к тому, куда сейчас смотрит камера.
                                                     val ratio = newZoom / camera.zoom
                                                     val cursor = change.position
                                                     val center = Offset(size.width / 2f, size.height / 2f)
@@ -147,11 +143,9 @@ fun GlassViewport(
                                                     camera.zoom = newZoom
                                                 }
                                                 event.keyboardModifiers.isShiftPressed -> {
-                                                    // Shift + колесо — горизонтальный пан.
                                                     camera.panX -= delta * WHEEL_PAN_SENSITIVITY
                                                 }
                                                 else -> {
-                                                    // Просто колесо — вертикальный пан.
                                                     camera.panY -= delta * WHEEL_PAN_SENSITIVITY
                                                 }
                                             }
@@ -162,6 +156,7 @@ fun GlassViewport(
                                 }
                             }
                         }
+                        .viewportTouchGestures(camera)
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {

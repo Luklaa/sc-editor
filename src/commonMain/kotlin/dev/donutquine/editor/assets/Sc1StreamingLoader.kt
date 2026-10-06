@@ -51,7 +51,7 @@ object Sc1StreamingLoader {
         val file = File(path)
         if (!file.isFile) return null
 
-        onStage("Parsing: unpacking")
+        onStage("Decoding: Unpacking")
         val unpacked = unpackToMapped(path) ?: return null
         val data = unpacked.data
         AppLog.i("SC1 streaming loader: container v${unpacked.version}, unpacked ${data.limit() / 1024} KB, ${AppLog.memory()}")
@@ -120,7 +120,7 @@ object Sc1StreamingLoader {
             return small
         }
 
-        onStage("Parsing: reading tags")
+        onStage("Decoding: reading tags")
         var pos = header.position
         val limit = data.limit()
         val textureGetter = java.util.function.Function<Int, SWFTexture> { index -> textures[index] }
@@ -218,7 +218,7 @@ object Sc1StreamingLoader {
             val texturePath = if (useUncommonResolution) uncommonTexturePath!! else path.substring(0, path.length - 3) + TEXTURE_EXTENSION
             val textureName = File(texturePath).name
             if (!File(texturePath).isFile) throw TextureFileMissingException(textureName)
-            onStage("Parsing: unpacking $textureName")
+            onStage("Decoding: unpacking $textureName")
             val unpackedTextures = unpackToMapped(texturePath)
                 ?: throw IllegalStateException("Texture file $textureName is not an SC1 container")
             textureFile = unpackedTextures.data
